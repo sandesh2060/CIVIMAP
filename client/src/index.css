@@ -1,0 +1,45 @@
+/* file: client/src/index.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ LIGHT MODE ============ */
+:root {
+  --np-crimson:      #DC143C;
+  --np-crimson-hover:#B01030;
+  --np-blue:         #003893;
+  --np-blue-hover:   #002A6E;
+  --bg:              #F8F9FB;
+  --surface:         #FFFFFF;
+  --surface-2:       #F1F3F7;
+  --border:          #E2E5EC;
+  --text:            #1F2433;
+  --text-muted:      #6B7280;
+  --text-on-brand:   #FFFFFF;
+  --crimson-soft:    #FBE9ED;
+  --blue-soft:       #E6ECF5;
+}
+
+/* ============ DARK MODE ============ */
+.dark {
+  --np-crimson:      #FF5470;
+  --np-crimson-hover:#FF7187;
+  --np-blue:         #5B8DEF;
+  --np-blue-hover:   #7AA4F2;
+  --bg:              #0E1117;
+  --surface:         #161B24;
+  --surface-2:       #1E2530;
+  --border:          #2A3340;
+  --text:            #E6E9EF;
+  --text-muted:      #9AA4B2;
+  --text-on-brand:   #0E1117;
+  --crimson-soft:    #2A1620;
+  --blue-soft:       #14203A;
+}
+
+/* make the page actually use the variables */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
