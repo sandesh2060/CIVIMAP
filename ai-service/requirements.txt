@@ -1,0 +1,14 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+requests==2.32.3
+python-multipart==0.0.9
+paddlepaddle>=2.6.0
+# IMPORTANT: pin this to your currently-installed, tested version — run
+# `pip show paddleocr` and replace `>=2.7.0` with `==<that version>`.
+# An unpinned floor let pip resolve to a 3.x release whose default
+# ocr_version (PP-OCRv6) silently dropped Devanagari support, which is
+# what broke plate_detection.py. Do not leave this unpinned again.
+paddleocr>=2.7.0

@@ -1,45 +1,51 @@
-// file: client/src/App.jsx
-
-import { useEffect, useState } from "react";
-import Lenis from "lenis";
-import { AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Preloader from "./components/Preloader";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
+//user pages
+import LoginPage from "./pages/user/LoginPage";
+import RegisterPage from "./pages/user/RegisterPage";
+import WelcomePage from "./pages/user/WelcomePage";
+import UserDashboard from "./pages/user/dashboard/UserDashboard";
+//admin pages
+import AdminLoginPage from "./pages/admin/AdminLoginPage";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
 
-  // hide preloader after 2 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // lenis smooth scroll
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-    });
-    function raf(time) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
-    return () => lenis.destroy();
-  }, []);
-
   return (
-    <>
-      <AnimatePresence>{loading && <Preloader />}</AnimatePresence>
-
-      <div className="min-h-screen bg-bg text-text">
-        <h1 className="text-4xl font-bold p-8">CiviMap</h1>
-        <div style={{ height: "200vh" }} className="p-8">
-          Scroll down to test Lenis smooth scrolling…
-        </div>
-      </div>
-    </>
+    <BrowserRouter>
+      <AuthProvider>
+        <Preloader loading={loading} onDone={() => setLoading(false)} />
+        <Routes>
+          {/* user routes */}
+          <Route path="/" element={<WelcomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+  path="/dashboard"
+  element={
+    <ProtectedRoute roles={["citizen"]}>
+      <UserDashboard />
+    </ProtectedRoute>
+  }
+/>
+          {/* admin routes */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 };
 
