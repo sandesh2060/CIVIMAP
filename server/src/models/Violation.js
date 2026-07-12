@@ -59,6 +59,16 @@ const ViolationSchema = new Schema(
       ref: "MockVehicleRegistry",
       default: null,
     },
+    // Populated only when the matched MockVehicleRegistry entry has its
+    // own ownerUserId set (i.e. the vehicle's registered owner is also a
+    // CIVIMAP citizen account) — most real registry matches won't have
+    // this, so it stays null in the common case. Lets a violation be
+    // traced straight to a citizen account without an extra lookup.
+    matchedOwnerUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
 
     location: {
       type: { type: String, enum: ["Point"], default: "Point" },
@@ -101,6 +111,7 @@ ViolationSchema.index({ location: "2dsphere" });
 ViolationSchema.index({ status: 1, createdAt: -1 });
 ViolationSchema.index({ reportedBy: 1, createdAt: -1 });
 ViolationSchema.index({ extractedPlateNumber: 1 });
+ViolationSchema.index({ matchedOwnerUserId: 1 });
 
 /* ------------------------------------------------------------------ */
 /*  Instance methods                                                    */

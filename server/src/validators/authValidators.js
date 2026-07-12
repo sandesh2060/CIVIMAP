@@ -30,4 +30,43 @@ const adminLoginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-module.exports = { otpRequestSchema, otpVerifySchema, adminLoginSchema };
+/* ---------- profile update ---------- */
+// Deliberately a strict allow-list mirroring the fields on User.js that
+// are meant to be citizen-editable. Anything not listed here (email,
+// phone, role, trustScore, stats, verification flags, etc.) is
+// registry-sourced / server-managed and must never be settable through
+// this endpoint, regardless of what a client sends.
+
+const addressSchema = Joi.object({
+  province: Joi.string().trim().allow("", null),
+  district: Joi.string().trim().allow("", null),
+  municipality: Joi.string().trim().allow("", null),
+  wardNo: Joi.number().integer().min(1).allow(null),
+  street: Joi.string().trim().allow("", null),
+});
+
+const notificationPrefsSchema = Joi.object({
+  email: Joi.boolean(),
+  whatsapp: Joi.boolean(),
+  sms: Joi.boolean(),
+  push: Joi.boolean(),
+});
+
+const updateProfileSchema = Joi.object({
+  fullName: Joi.string().trim().min(2).max(100),
+  dateOfBirth: Joi.date().max("now").allow(null),
+  gender: Joi.string().valid("male", "female", "other", "prefer_not_to_say"),
+  address: addressSchema,
+  languagePref: Joi.string().valid("en", "ne"),
+  theme: Joi.string().valid("light", "dark", "system"),
+  notificationPrefs: notificationPrefsSchema,
+})
+  .min(1)
+  .messages({ "object.min": "Provide at least one field to update" });
+
+module.exports = {
+  otpRequestSchema,
+  otpVerifySchema,
+  adminLoginSchema,
+  updateProfileSchema,
+};

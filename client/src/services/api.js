@@ -4,9 +4,11 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 let accessToken = null;
 let onUnauthorized = () => {};
+let onTokenChange = () => {};
 
 export function setAccessToken(token) {
   accessToken = token;
+  onTokenChange(token);
 }
 
 export function getAccessToken() {
@@ -15,6 +17,10 @@ export function getAccessToken() {
 
 export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn;
+}
+
+export function setTokenChangeHandler(fn) {
+  onTokenChange = fn;
 }
 
 export const api = axios.create({
@@ -45,8 +51,9 @@ api.interceptors.response.use(
           refreshPromise = api
             .post("/auth/refresh")
             .then((res) => {
-              setAccessToken(res.data.accessToken);
-              return res.data.accessToken;
+              const token = res.data.data.accessToken;
+              setAccessToken(token);
+              return token;
             })
             .finally(() => {
               refreshPromise = null;

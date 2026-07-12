@@ -28,8 +28,10 @@ async function getRoute(req, res, next) {
     // OSRM expects lng,lat order.
     const url = `${env.OSRM_SERVER_URL}/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}`;
     const { data } = await axios.get(url, {
-      params: { overview: "full", geometries: "geojson" },
-      timeout: 10000,
+      // steps=true pulls per-maneuver turn instructions (used for the
+      // turn-by-turn nav view) instead of just the overall geometry.
+      params: { overview: "full", geometries: "geojson", steps: true },
+      timeout: 15000,
     });
 
     if (!data.routes || !data.routes.length) {
@@ -37,10 +39,32 @@ async function getRoute(req, res, next) {
     }
 
     const route = data.routes[0];
+
+    // Flatten every leg's steps into one ordered array. A single from/to
+    // request is always one leg (no via-points yet), but this stays
+    // correct if multi-waypoint routing is added later.
+    const steps = (route.legs || []).flatMap((leg) =>
+      (leg.steps || []).map((step) => ({
+        distanceMeters: step.distance,
+        durationSeconds: step.duration,
+        instructionType: step.maneuver.type, // e.g. "turn", "roundabout", "arrive"
+        modifier: step.maneuver.modifier || null, // e.g. "left", "slight right"
+        streetName: step.name || null,
+        exit: step.maneuver.exit ?? null,
+        bearingBefore: step.maneuver.bearing_before ?? null,
+        bearingAfter: step.maneuver.bearing_after ?? null,
+        location: {
+          lat: step.maneuver.location[1],
+          lng: step.maneuver.location[0],
+        },
+      }))
+    );
+
     return ApiResponse.ok(res, {
       polyline: route.geometry, // GeoJSON LineString
       distanceMeters: route.distance,
       durationSeconds: route.duration,
+      steps,
     });
   } catch (err) {
     if (err.isAxiosError) {

@@ -22,9 +22,9 @@ class ApiResponse {
     });
   }
 
-  static ok(res, data, message = "Success") {
-    return new ApiResponse(200, data, message).send(res);
-  }
+static ok(res, data, message) {
+  return res.status(200).json({ success: true, data, message });
+}
 
   static created(res, data, message = "Created") {
     return new ApiResponse(201, data, message).send(res);

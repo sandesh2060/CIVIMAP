@@ -22,6 +22,7 @@ async function listSignals(req, res, next) {
   }
 }
 
+
 async function createSignal(req, res, next) {
   try {
     const { signalId, name, location, cycleDurations } = req.body;

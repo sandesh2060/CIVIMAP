@@ -7,6 +7,7 @@ import { useLang } from "../../../i18n/LanguageContext";
 import { useAuth } from "../../../context/AuthContext"; // adjust if your hook is named differently
 import { EASE } from "../../../config/tokens";
 import ViolationUpload from "../../../components/violation/ViolationUpload";
+import ReportForm from "../../../components/report/ReportForm";
 
 const REPORT_STATUS_STYLE = {
   pending: { bg: "var(--crimson-soft)", color: "var(--np-crimson)" },
@@ -64,6 +65,7 @@ export default function ReportsPage({ onNavigate }) {
   const [liveConnected, setLiveConnected] = useState(false);
   const [justUpdatedIds, setJustUpdatedIds] = useState(() => new Set());
   const [showViolationUpload, setShowViolationUpload] = useState(false);
+  const [showReportForm, setShowReportForm] = useState(false);
   const socketRef = useRef(null);
 
   async function load() {
@@ -161,6 +163,11 @@ export default function ReportsPage({ onNavigate }) {
     load(); // refresh so the new violation shows up immediately in the table
   }
 
+  function handleReportSubmitted() {
+    setShowReportForm(false);
+    load(); // refresh so the new report shows up immediately in the table
+  }
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -184,6 +191,15 @@ export default function ReportsPage({ onNavigate }) {
           <p className="text-muted text-sm mt-1">{t("reports.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
+          {tab === "reports" && (
+            <button
+              onClick={() => setShowReportForm(true)}
+              className="px-4 h-9 rounded-lg text-white text-sm font-medium"
+              style={{ background: "var(--np-crimson)" }}
+            >
+              {t("reports.reportIssue") || "Report an Issue"}
+            </button>
+          )}
           {tab === "violations" && (
             <button
               onClick={() => setShowViolationUpload(true)}
@@ -288,7 +304,7 @@ export default function ReportsPage({ onNavigate }) {
             </p>
             {activeData.length === 0 && (
               <button
-                onClick={() => (tab === "reports" ? onNavigate?.("map") : setShowViolationUpload(true))}
+                onClick={() => (tab === "reports" ? setShowReportForm(true) : setShowViolationUpload(true))}
                 className="mt-1 px-4 h-9 rounded-lg text-white text-[13px] font-medium"
                 style={{ background: "var(--np-crimson)" }}
               >
@@ -468,6 +484,7 @@ export default function ReportsPage({ onNavigate }) {
 
                 {detailItem.item.location?.lat && detailItem.item.location?.lng && (
                   <a
+                  
                     href={`https://www.google.com/maps?q=${detailItem.item.location.lat},${detailItem.item.location.lng}`}
                     target="_blank"
                     rel="noreferrer"
@@ -531,6 +548,42 @@ export default function ReportsPage({ onNavigate }) {
                 </button>
               </div>
               <ViolationUpload onSubmitted={handleViolationSubmitted} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Report form modal */}
+      <AnimatePresence>
+        {showReportForm && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setShowReportForm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.97, opacity: 0 }}
+              transition={{ duration: 0.2, ease: EASE.out }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-surface border border-border rounded-xl w-full max-w-md p-5"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display text-lg font-semibold text-text">
+                  {t("reports.reportIssue") || "Report an Issue"}
+                </h3>
+                <button
+                  onClick={() => setShowReportForm(false)}
+                  className="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface2 transition"
+                  aria-label={t("reports.close")}
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <ReportForm onSubmitted={handleReportSubmitted} />
             </motion.div>
           </motion.div>
         )}

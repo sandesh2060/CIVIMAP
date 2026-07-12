@@ -27,10 +27,19 @@ DEVANAGARI_DIGITS = "०१२३४५६७८९"
 # (province code letters + vehicle category letters: क ख ग च ज झ प ब भ म य etc.)
 PLATE_LETTERS = "कखगचजझटठडढणतथदधनपफबभमयरलवशषसह"
 
+# Devanagari vowel signs/diacritics (matras) that legitimately appear in
+# province-code prefixes, e.g. "बा" = ब + ा.
+_PLATE_MATRAS = "ािीुूेैोौंँ्"
+
 # Everything the OCR is allowed to output. Anything outside this set
 # (Latin digits, Latin letters, punctuation, symbols) is invalid by
 # construction and should never survive post-processing.
-VALID_PLATE_CHARSET = set(DEVANAGARI_DIGITS + PLATE_LETTERS + " .-")
+#
+# BUGFIX: this previously omitted matras entirely, so strip_invalid_chars()
+# silently deleted the vowel sign from any correctly-read prefix like
+# "बा" (ब + ा), turning it into "ब" -- deterministic data loss on every
+# plate whose province code uses a matra, independent of OCR confidence.
+VALID_PLATE_CHARSET = set(DEVANAGARI_DIGITS + PLATE_LETTERS + _PLATE_MATRAS + " .-")
 
 
 # ---------------------------------------------------------------------------

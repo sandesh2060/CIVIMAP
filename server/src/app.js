@@ -61,8 +61,9 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/violations", violationRoutes);
 app.use("/api/places", placeRoutes);
 app.use("/api/signals", signalRoutes);
-app.use("/api/map", mapRoutes);
+app.use("/api", mapRoutes);
 app.use("/api/emergency", emergencyRoutes);
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.use(notFoundHandler);
 app.use(errorHandler);

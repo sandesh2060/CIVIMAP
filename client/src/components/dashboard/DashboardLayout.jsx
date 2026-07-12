@@ -1,8 +1,9 @@
-// file: client/src/components/dashboard/DashboardLayout.jsx
+// file: client/src/components/dashboard/DashboardLayout.jsx  (FULL FILE — replace existing)
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import LiveNotificationPopup from "./LiveNotificationPopup";
 import { EASE } from "../../config/tokens";
 
 /*
@@ -13,6 +14,17 @@ import { EASE } from "../../config/tokens";
     nothing ever gets hidden underneath.
   - Mobile: hamburger opens a slide-in drawer (always expanded, still
     an overlay there since it's meant to sit on top on small screens).
+
+  IMPORTANT: `children` now contains ALL dashboard pages at once (see
+  UserDashboard.jsx) — the caller toggles which one is visible via
+  CSS, not by swapping which component is mounted. That means this
+  layout must NOT wrap `children` in anything keyed by `active`
+  (e.g. <motion.div key={active}>) — doing so would force React to
+  unmount and remount the entire children subtree on every tab
+  switch, defeating the whole point (every page would refetch its
+  data and reconnect its sockets again, right back to the original
+  bug). So `children` is rendered plain below, with no key-driven
+  animation on it.
 */
 
 const RAIL = 76;
@@ -29,6 +41,10 @@ export default function DashboardLayout({ items, active, onSelect, title, childr
 
   return (
     <div className="h-screen flex bg-bg text-text overflow-hidden">
+      {/* Mounted at the shell level — stays alive across tab switches,
+          same as before. */}
+      <LiveNotificationPopup />
+
       {/* ===== Desktop sidebar: real flex item, width animates, content reflows ===== */}
       <motion.aside
         onMouseEnter={() => setHover(true)}
@@ -66,19 +82,9 @@ export default function DashboardLayout({ items, active, onSelect, title, childr
 
       {/* ===== Main column ===== */}
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title={title} onMenu={() => setDrawerOpen(true)} />
+        <Topbar title={title} onMenu={() => setDrawerOpen(true)} onNavigate={onSelect} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={active}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.32, ease: EASE.out }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {children}
         </main>
       </div>
     </div>

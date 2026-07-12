@@ -55,27 +55,40 @@ async function processViolationDetection(job) {
 
   const highConfidence = confidence >= env.AI_CONFIDENCE_THRESHOLD;
 
-  if (highConfidence && registryMatch) {
-    violation.matchedOwner = {
-      name: registryMatch.ownerName,
-      phone: registryMatch.phone,
-      email: registryMatch.email,
-      vehicleType: registryMatch.vehicleType,
-    };
-    violation.matchedRegistryId = registryMatch._id;
-    await violation.save();
+if (highConfidence && registryMatch) {
+  violation.matchedOwner = {
+    name: registryMatch.ownerName,
+    phone: registryMatch.phone,
+    email: registryMatch.email,
+    vehicleType: registryMatch.vehicleType,
+  };
+  violation.matchedRegistryId = registryMatch._id;
+  violation.matchedOwnerUserId = registryMatch.ownerUserId || null;
+  await violation.save();
 
-    const dispatchResults = await notifications.dispatchViolationNotifications(violation);
-    violation.notificationChannels = dispatchResults;
-    violation.status = "notified";
-    violation.notifiedAt = new Date();
-    await violation.save();
+  const dispatchResults = await notifications.dispatchViolationNotifications(violation);
+  violation.notificationChannels = dispatchResults;
+  violation.status = "notified";
+  violation.notifiedAt = new Date();
+  await violation.save();
 
-    if (user) {
-      user.stats.violationsConfirmed += 1;
-      await user.adjustTrustScore(3);
+  if (violation.matchedOwnerUserId) {
+    const notificationService = require("../services/notificationService");
+    try {
+      await notificationService.notifyOwnerMatchedViolation(violation);
+    } catch (err) {
+      logger.jobFailure("In-app notification failed for matched owner", {
+        violationId,
+        error: err.message,
+      });
     }
-  } else {
+  }
+
+  if (user) {
+    user.stats.violationsConfirmed += 1;
+    await user.adjustTrustScore(3);
+  }
+}else {
     // Low confidence OR no registry match — never auto-notify (README
     // section 15: false accusations must be prevented by a human check).
     await violation.markFlagged({ confidence });

@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import { toLatLng } from "../../utils/geo";
 
 const CATEGORY_COLOR = {
   hospital: "#DC143C",
   school: "#003893",
-  tourist: "#1FA34A",
-  sensitive: "#6B21A8",
+  tourist: "#1E5631",
+  sensitive: "#C89B3C",
   report: "#F59E0B",
   violation: "#DC143C",
 };
@@ -15,23 +16,18 @@ const CATEGORY_COLOR = {
 function dotIcon(color) {
   return L.divIcon({
     className: "",
-    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></span>`,
+    html: `<span style="display:block;width:14px;height:14px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></span>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
   });
 }
 
-/**
- * Renders a single map marker. `kind` is "place" | "report" | "violation".
- * Reports/violations carry `aiConfidence` (README §6.4, §7 schema) — only
- * revealed once the popup is actually opened, per your spec: "show AI
- * confidence on existing report/violation pins when clicked."
- */
 export default function PlacePin({ kind = "place", data, onOpen }) {
   const [opened, setOpened] = useState(false);
   const category = kind === "place" ? data.category : kind;
   const color = CATEGORY_COLOR[category] || "#64748B";
-  const position = [data.location.lat, data.location.lng];
+  const position = toLatLng(data.location);
+  if (!position) return null;
 
   return (
     <Marker
@@ -47,14 +43,18 @@ export default function PlacePin({ kind = "place", data, onOpen }) {
       <Popup minWidth={200}>
         {kind === "place" ? (
           <div className="space-y-1">
-            <div className="font-semibold">{data.name}</div>
-            <div className="text-xs uppercase tracking-wide text-muted">{data.category}</div>
-            {data.description && <p className="text-sm">{data.description}</p>}
+            <div className="font-semibold" style={{ color: "var(--text)" }}>{data.name}</div>
+            <div className="text-xs uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+              {data.category}
+            </div>
+            {data.description && (
+              <p className="text-sm" style={{ color: "var(--text)" }}>{data.description}</p>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="font-semibold capitalize">{kind} report</div>
-            {data.description && <p className="text-sm">{data.description}</p>}
+            <div className="font-semibold capitalize" style={{ color: "var(--text)" }}>{kind} report</div>
+            {data.description && <p className="text-sm" style={{ color: "var(--text)" }}>{data.description}</p>}
             {data.imageUrl && (
               <img src={data.imageUrl} alt={kind} className="w-full h-24 object-cover rounded" />
             )}
@@ -64,18 +64,20 @@ export default function PlacePin({ kind = "place", data, onOpen }) {
                   <span>AI confidence</span>
                   <span>{Math.round(data.aiConfidence * 100)}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
                   <div
                     className="h-full rounded-full"
                     style={{
                       width: `${Math.round(data.aiConfidence * 100)}%`,
-                      background: data.aiConfidence >= 0.85 ? "#16A34A" : "#F59E0B",
+                      background: data.aiConfidence >= 0.85 ? "#1E5631" : "#C89B3C",
                     }}
                   />
                 </div>
               </div>
             )}
-            <div className="text-[11px] text-muted capitalize">status: {data.status}</div>
+            <div className="text-[11px] capitalize" style={{ color: "var(--text-muted)" }}>
+              status: {data.status}
+            </div>
           </div>
         )}
       </Popup>

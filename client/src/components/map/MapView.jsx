@@ -71,12 +71,33 @@ function SizeFix() {
   return null;
 }
 
-/** Lets the parent imperatively recenter the map (route search, "use my location"). */
+/**
+ * Lets the parent imperatively recenter the map (route search, "use my
+ * location"). Parents that build the `center` array inline on every
+ * render (e.g. `flyTo && [flyTo.lat, flyTo.lng]`) pass a *new array
+ * reference* even when the coordinates haven't actually moved — and this
+ * component used to re-run map.flyTo() on every one of those renders,
+ * fighting the map's own animation and producing a visible "shake" every
+ * time something unrelated (a socket tick, a re-render higher up) fired.
+ *
+ * Fix: compare the actual lat/lng values against the last point we flew
+ * to, and only call flyTo() when they genuinely changed.
+ */
 function FlyToController({ center, zoom }) {
   const map = useMap();
+  const lastFlownRef = useRef(null);
+
   useEffect(() => {
-    if (center) map.flyTo(center, zoom ?? map.getZoom(), { duration: 0.8 });
+    if (!center) return;
+    const [lat, lng] = center;
+    const last = lastFlownRef.current;
+    const unchanged = last && Math.abs(last[0] - lat) < 1e-6 && Math.abs(last[1] - lng) < 1e-6;
+    if (unchanged) return;
+
+    lastFlownRef.current = [lat, lng];
+    map.flyTo([lat, lng], zoom ?? map.getZoom(), { duration: 0.8 });
   }, [center, zoom, map]);
+
   return null;
 }
 

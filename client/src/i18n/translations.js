@@ -179,6 +179,13 @@ export const translations = {
     "reports.approve": "Approve",
 "reports.reject": "Reject",
 
+"ov.emergencyAlertsSent": "Emergency alerts",
+"ov.alertType": "Emergency alert",
+"ov.openAlertsBanner": "You have {n} open emergency alert(s)",
+"ov.openAlertsBannerHint": "Tap to view status and follow up",
+"ov.sendEmergencyCta": "Send an emergency alert",
+"ov.sendEmergencyHint": "Ambulance, fire, police, or rescue",
+
 
 "violations.heading": "Traffic Violations",
 "violations.subtitle": "Review AI-detected plate matches",
@@ -214,6 +221,86 @@ export const translations = {
 "places.category.tourist": "Tourist Spot",
 "places.category.sensitive": "Sensitive Site",
 "places.category.custom": "Custom",
+
+
+"settings.heading": "Settings",
+"settings.subtitle": "Manage your profile, preferences, and account security",
+ 
+"settings.profilePicture": "Profile picture",
+"settings.uploadPhoto": "Upload photo",
+"settings.uploading": "Uploading…",
+"settings.remove": "Remove",
+"settings.photoHint": "JPG, PNG or WEBP. Max 3MB.",
+"settings.avatarTooLarge": "Image is too large. Max size is 3MB.",
+"settings.avatarBadType": "Please upload a JPG, PNG, or WEBP image.",
+"settings.avatarUploadError": "Couldn't upload your photo. Please try again.",
+"settings.avatarRemoveError": "Couldn't remove your photo. Please try again.",
+ 
+"settings.personalInfo": "Personal information",
+"settings.personalInfoHint": "Update your name, date of birth, and address",
+"settings.fullName": "Full name",
+"settings.dateOfBirth": "Date of birth",
+"settings.gender": "Gender",
+"settings.genderPreferNot": "Prefer not to say",
+"settings.genderMale": "Male",
+"settings.genderFemale": "Female",
+"settings.genderOther": "Other",
+"settings.address": "Address",
+"settings.province": "Province",
+"settings.district": "District",
+"settings.municipality": "Municipality",
+"settings.wardNo": "Ward No.",
+"settings.street": "Street",
+"settings.email": "Email",
+"settings.phone": "Phone",
+"settings.verified": "Verified",
+"settings.unverified": "Unverified",
+"settings.citizenshipNumber": "Citizenship number",
+"settings.notProvided": "Not provided",
+"settings.nameTooShort": "Full name must be at least 2 characters.",
+"settings.saved": "Changes saved successfully.",
+"settings.saveError": "Couldn't save changes. Please try again.",
+"settings.saving": "Saving…",
+"settings.saveChanges": "Save changes",
+ 
+
+
+
+
+"topbar.logoutConfirmTitle": "Log out?",
+"topbar.logoutConfirmBody": "You'll need to verify with an OTP again to sign back in.",
+"common.cancel": "Cancel",
+
+
+
+
+"settings.preferences": "Preferences",
+"settings.preferencesHint": "Theme, language, and notification settings",
+"settings.theme": "Theme",
+"settings.themeLight": "Light",
+"settings.themeDark": "Dark",
+"settings.language": "Language",
+"settings.notifications": "Notifications",
+"settings.notifEmail": "Email notifications",
+"settings.notifWhatsapp": "WhatsApp notifications",
+"settings.notifSms": "SMS notifications",
+"settings.notifPush": "Push notifications",
+ 
+"settings.civicActivity": "Civic activity",
+"settings.civicActivityHint": "Your reporting history and trust score",
+"settings.trustScore": "Trust score",
+"settings.reportsRejected": "Reports rejected",
+"settings.violationsRejected": "Violations rejected",
+"settings.memberSince": "Member since",
+"settings.lastLogin": "Last login",
+ 
+"settings.security": "Security",
+"settings.securityHint": "Manage sessions across your devices",
+"settings.logoutAllDevicesHint": "This will sign you out of all devices, including this one.",
+"settings.logoutAllDevices": "Log out of all devices",
+"settings.signingOut": "Signing out…",
+ 
+ 
 
 
     "nav.emergency": "Emergency",
@@ -304,6 +391,11 @@ export const translations = {
     "th.priority": "Priority",
     "th.votes": "Votes",
 
+    "common.error": "Something went wrong",
+"common.success": "Success",
+"common.notice": "Notice",
+"violations.selfReportError": "This vehicle is registered under your own account, so it can't be reported — self-reports are rejected automatically.",
+
     // ADD to translations.js -> en
 "reports.tabReports": "Road issues",
 "reports.tabViolations": "Violations",
@@ -316,7 +408,7 @@ export const translations = {
 "reports.retry": "Retry",
 "reports.viewImage": "View photo",
 
-
+"nav.broadcast": "Broadcast", 
     // ADD to translations.js -> en
 "status.approved": "Approved",
 "status.flagged": "Under review",
@@ -398,6 +490,74 @@ export const translations = {
 "status.reviewed": "समीक्षा भयो",
 
 
+
+"settings.heading": "सेटिङ",
+"settings.subtitle": "आफ्नो प्रोफाइल, प्राथमिकता र खाता सुरक्षा व्यवस्थापन गर्नुहोस्",
+ 
+"settings.profilePicture": "प्रोफाइल तस्बिर",
+"settings.uploadPhoto": "फोटो अपलोड गर्नुहोस्",
+"settings.uploading": "अपलोड हुँदैछ…",
+"settings.remove": "हटाउनुहोस्",
+"settings.photoHint": "JPG, PNG वा WEBP। अधिकतम ३MB।",
+"settings.avatarTooLarge": "तस्बिर धेरै ठूलो छ। अधिकतम साइज ३MB हो।",
+"settings.avatarBadType": "कृपया JPG, PNG, वा WEBP तस्बिर अपलोड गर्नुहोस्।",
+"settings.avatarUploadError": "तपाईंको फोटो अपलोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।",
+"settings.avatarRemoveError": "तपाईंको फोटो हटाउन सकिएन। फेरि प्रयास गर्नुहोस्।",
+ 
+"settings.personalInfo": "व्यक्तिगत जानकारी",
+"settings.personalInfoHint": "आफ्नो नाम, जन्म मिति, र ठेगाना अपडेट गर्नुहोस्",
+"settings.fullName": "पूरा नाम",
+"settings.dateOfBirth": "जन्म मिति",
+"settings.gender": "लिङ्ग",
+"settings.genderPreferNot": "भन्न नचाहने",
+"settings.genderMale": "पुरुष",
+"settings.genderFemale": "महिला",
+"settings.genderOther": "अन्य",
+"settings.address": "ठेगाना",
+"settings.province": "प्रदेश",
+"settings.district": "जिल्ला",
+"settings.municipality": "नगरपालिका",
+"settings.wardNo": "वडा नं.",
+"settings.street": "सडक",
+"settings.email": "इमेल",
+"settings.phone": "फोन",
+"settings.verified": "प्रमाणित",
+"settings.unverified": "अप्रमाणित",
+"settings.citizenshipNumber": "नागरिकता नम्बर",
+"settings.notProvided": "उपलब्ध छैन",
+"settings.nameTooShort": "पूरा नाम कम्तीमा २ अक्षरको हुनुपर्छ।",
+"settings.saved": "परिवर्तनहरू सफलतापूर्वक सेभ भयो।",
+"settings.saveError": "परिवर्तनहरू सेभ गर्न सकिएन। फेरि प्रयास गर्नुहोस्।",
+"settings.saving": "सेभ हुँदैछ…",
+"settings.saveChanges": "परिवर्तनहरू सेभ गर्नुहोस्",
+ 
+"settings.preferences": "प्राथमिकताहरू",
+"settings.preferencesHint": "थिम, भाषा, र सूचना सेटिङहरू",
+"settings.theme": "थिम",
+"settings.themeLight": "उज्यालो",
+"settings.themeDark": "अँध्यारो",
+"settings.language": "भाषा",
+"settings.notifications": "सूचनाहरू",
+"settings.notifEmail": "इमेल सूचना",
+"settings.notifWhatsapp": "व्हाट्सएप सूचना",
+"settings.notifSms": "एसएमएस सूचना",
+"settings.notifPush": "पुश सूचना",
+ 
+"settings.civicActivity": "नागरिक गतिविधि",
+"settings.civicActivityHint": "तपाईंको रिपोर्टिङ इतिहास र विश्वास स्कोर",
+"settings.trustScore": "विश्वास स्कोर",
+"settings.reportsRejected": "अस्वीकृत रिपोर्टहरू",
+"settings.violationsRejected": "अस्वीकृत उल्लङ्घनहरू",
+"settings.memberSince": "सदस्य भएको मिति",
+"settings.lastLogin": "पछिल्लो लगइन",
+ 
+"settings.security": "सुरक्षा",
+"settings.securityHint": "आफ्ना उपकरणहरूमा सत्र व्यवस्थापन गर्नुहोस्",
+"settings.logoutAllDevicesHint": "यसले तपाईंलाई सबै उपकरणहरूबाट साइन आउट गर्नेछ, यो एउटा सहित।",
+"settings.logoutAllDevices": "सबै उपकरणबाट लग आउट गर्नुहोस्",
+"settings.signingOut": "साइन आउट हुँदैछ…",
+ 
+
 "nav.emergency": "आपतकालीन",
 "nav.violations": "उल्लङ्घनहरू",
 "nav.places": "स्थानहरू",
@@ -448,6 +608,19 @@ export const translations = {
 "violations.noOwnerMatch": "दर्तामा कुनै मिल्दो सवारी मालिक फेला परेन।",
 "violations.confirm": "पुष्टि गर्नुहोस्",
 
+
+"ov.emergencyAlertsSent": "आपतकालीन अलर्टहरू",
+"ov.alertType": "आपतकालीन अलर्ट",
+"ov.openAlertsBanner": "तपाईंसँग {n} खुला आपतकालीन अलर्ट छ",
+"ov.openAlertsBannerHint": "स्थिति हेर्न र पछ्याउन ट्याप गर्नुहोस्",
+"ov.sendEmergencyCta": "आपतकालीन अलर्ट पठाउनुहोस्",
+"ov.sendEmergencyHint": "एम्बुलेन्स, दमकल, प्रहरी, वा उद्धार",
+
+"common.error": "केही गडबड भयो",
+"common.success": "सफल भयो",
+"common.notice": "सूचना",
+"violations.selfReportError": "यो सवारी तपाईंकै खातामा दर्ता भएको छ, त्यसैले यसलाई रिपोर्ट गर्न मिल्दैन — आफ्नै सवारी विरुद्धको रिपोर्ट स्वतः अस्वीकार गरिन्छ।",
+
 "places.heading": "स्थान पिनहरू",
 "places.subtitle": "अस्पताल, विद्यालय, पर्यटकीय स्थल र संवेदनशील स्थलहरू व्यवस्थापन गर्नुहोस्",
 "places.addPlace": "स्थान थप्नुहोस्",
@@ -489,6 +662,14 @@ export const translations = {
 "nav.violations": "उल्लङ्घनहरू",
 "nav.places": "स्थानहरू",
 "nav.emergency": "आपतकालीन",
+
+
+
+"topbar.logoutConfirmTitle": "लग आउट गर्ने हो?",
+"topbar.logoutConfirmBody": "फेरि साइन इन गर्न तपाईंले पुनः OTP प्रमाणित गर्नुपर्नेछ।",
+"common.cancel": "रद्द गर्नुहोस्",
+
+
 
 "reports.heading": "प्रतिवेदनहरू",
 "reports.subtitle": "नेपालभर नागरिकद्वारा पेश गरिएका समस्याहरू",
@@ -544,6 +725,8 @@ export const translations = {
 "th.ward": "वडा",
 "th.priority": "प्राथमिकता",
 "th.votes": "भोटहरू",
+
+"nav.broadcast": "प्रसारण",  
 
 "violations.heading": "ट्राफिक उल्लङ्घनहरू",
 "violations.subtitle": "AI ले पत्ता लगाएका प्लेट मिलानहरू समीक्षा गर्नुहोस्",

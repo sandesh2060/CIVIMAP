@@ -18,28 +18,37 @@ function initSockets(httpServer) {
     cors: { origin: env.CLIENT_ORIGIN, credentials: true },
   });
 
-  // Optional auth: if a token is provided, identify the socket's owner so
-  // we can join it to a personal room (user-<id>) for targeted events like
-  // report:statusChanged. Anonymous/unauthenticated sockets are still
-  // allowed to join public rooms (map viewport, signal updates).
+  // Auth: a valid token is required to identify the socket's owner and
+  // join it to a personal room (user-<id>) for targeted events like
+  // notification:new. Sockets with a missing or invalid token are
+  // rejected outright rather than allowed through anonymously — letting
+  // them through silently was causing "connected but deaf" sessions
+  // where the client looked live but never joined any room.
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
-    if (token) {
-      try {
-        const payload = verifyAccessToken(token);
-        socket.accountId = payload.sub;
-        socket.accountType = payload.accountType;
-      } catch (err) {
-        logger.authFailure("Socket auth token invalid", { error: err.message });
-      }
+
+    if (!token) {
+      // Public/anonymous access is still allowed for unauthenticated
+      // pages (map viewport, signal updates) — just no personal room.
+      return next();
     }
-    next();
+
+    try {
+      const payload = verifyAccessToken(token);
+      socket.accountId = payload.sub;
+      socket.accountType = payload.accountType;
+      return next();
+    } catch (err) {
+      logger.authFailure("Socket auth token invalid", { error: err.message });
+      return next(new Error("unauthorized"));
+    }
   });
 
   io.on("connection", (socket) => {
     if (socket.accountId) {
       socket.join(`user-${socket.accountId}`);
       if (socket.accountType === "admin") socket.join("admin-room");
+      if (socket.accountType === "citizen") socket.join("citizen-room");
     }
 
     registerMapSocket(io, socket);

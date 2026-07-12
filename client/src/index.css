@@ -96,6 +96,12 @@
   --shadow-btn-hover: 0 6px 18px -4px rgba(220, 20, 60, 0.32);
   --shadow-card-sm:
     0 1px 2px rgba(20, 16, 8, 0.03), 0 4px 14px -6px rgba(20, 16, 8, 0.1);
+
+  /* surface-card hairline — nearly invisible on light, since the shadow
+     above already does the separating work here */
+  --card-border: var(--border);
+  --card-shadow: var(--shadow-card-sm);
+  --card-shadow-hover: var(--shadow-card);
 }
 
 .dark {
@@ -142,6 +148,36 @@
   --shadow-btn-hover: 0 6px 18px -4px rgba(232, 83, 110, 0.4);
   --shadow-card-sm:
     0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 14px -6px rgba(0, 0, 0, 0.35);
+
+  /* On dark backgrounds a drop-shadow barely reads, so the border was
+     doing all the separating work — which is exactly the "hard box"
+     look. Flip the balance here: border fades to almost nothing, and
+     elevation comes from a faint inner top highlight + a real dark
+     drop shadow instead (same trick already used by .liquid-glass). */
+  --card-border: rgba(255, 255, 255, 0.06);
+  --card-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 10px 24px -14px rgba(0, 0, 0, 0.6);
+  --card-shadow-hover:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 16px 36px -16px rgba(0, 0, 0, 0.7);
+}
+
+/* ─── surface-card ───
+   The one elevated-card pattern used across the dashboard (Overview,
+   etc). Centralized here instead of inline styles so light/dark each
+   get the elevation treatment that actually works for that background,
+   without every page having to know the difference. */
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  transition:
+    box-shadow var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.surface-card:hover {
+  box-shadow: var(--card-shadow-hover);
 }
 
 /* ─── glass utilities (dashboard / other pages — unchanged) ─── */

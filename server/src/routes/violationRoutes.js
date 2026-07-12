@@ -16,6 +16,22 @@ const {
 
 const router = express.Router();
 
+// NEW: runs AI plate detection synchronously on a cropped photo BEFORE a
+// Violation record exists, so the citizen can see and confirm/correct
+// the read before anything is submitted. Reuses the same upload
+// middleware and rate limiter as the real submit route since it does
+// real work (Cloudinary upload + AI call) and should be protected the
+// same way — a citizen could otherwise hit this repeatedly as a free
+// OCR service.
+router.post(
+  "/detect-preview",
+  protect,
+  citizenOnly,
+  violationSubmitLimiter,
+  uploadSingleImage("image"),
+  violationController.detectPreview
+);
+
 router.post(
   "/",
   protect,

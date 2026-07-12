@@ -10,6 +10,7 @@ const ApiResponse = require("../utils/ApiResponse");
 const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 
+
 async function createReport(req, res, next) {
   try {
     if (!req.file) throw ApiError.badRequest("A photo is required");
@@ -108,8 +109,12 @@ async function reviewReport(req, res, next) {
     }
 
     const notifications = require("../notifications");
+     const notificationService = require("../services/notificationService");
     const user = await User.findById(report.reportedBy);
-    if (user) await notifications.dispatchReportStatusNotification(report, user);
+    if (user) {
+      await notifications.dispatchReportStatusNotification(report, user);
+        await notificationService.notifyReportStatus(report, user, decision); 
+    }
 
     return ApiResponse.ok(res, { report });
   } catch (err) {

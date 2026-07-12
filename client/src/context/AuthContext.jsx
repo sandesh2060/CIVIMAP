@@ -66,15 +66,13 @@ export function AuthProvider({ children }) {
     }
   }, [clearSession]);
 
-  const updateProfile = useCallback(async (name) => {
-    const res = await api.patch("/auth/me", { name });
-    setUser(res.data.data.user);
-    return res.data.data.user;
-  }, []);
-
-  const changePassword = useCallback(async (currentPassword, newPassword) => {
-    const res = await api.post("/auth/change-password", { currentPassword, newPassword });
-    setAccessToken(res.data.data.accessToken);
+  // Takes a partial-updates object matching the server's allow-list:
+  // { fullName?, dateOfBirth?, gender?, address?, languagePref?,
+  //   theme?, notificationPrefs? }
+  // e.g. updateProfile({ fullName: "New Name" })
+  //      updateProfile({ address: { province: "Bagmati" } })
+  const updateProfile = useCallback(async (updates) => {
+    const res = await api.patch("/auth/me", updates);
     setUser(res.data.data.user);
     return res.data.data.user;
   }, []);
@@ -105,7 +103,6 @@ export function AuthProvider({ children }) {
         logout,
         logoutAllDevices,
         updateProfile,
-        changePassword,
         uploadAvatar,
         removeAvatar,
         isAuthenticated: !!user,

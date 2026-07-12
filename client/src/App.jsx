@@ -24,14 +24,29 @@ const App = () => {
           <Route path="/" element={<WelcomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+
+          {/* /dashboard and /dashboard/:tab both render UserDashboard —
+              kept as two explicit routes (rather than one "/dashboard/:tab?"
+              pattern) so this works regardless of react-router-dom version.
+              UserDashboard itself normalizes a bare /dashboard to
+              /dashboard/overview via <Navigate replace>. */}
           <Route
-  path="/dashboard"
-  element={
-    <ProtectedRoute roles={["citizen"]}>
-      <UserDashboard />
-    </ProtectedRoute>
-  }
-/>
+            path="/dashboard"
+            element={
+              <ProtectedRoute roles={["citizen"]}>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/:tab"
+            element={
+              <ProtectedRoute roles={["citizen"]}>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+
           {/* admin routes */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route

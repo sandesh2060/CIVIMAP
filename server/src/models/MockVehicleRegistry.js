@@ -50,6 +50,20 @@ const MockVehicleRegistrySchema = new Schema(
     vehicleModel: { type: String, trim: true, default: null },
     vehicleColor: { type: String, trim: true, default: null },
 
+    // Optional link to a CIVIMAP citizen account, for the case where the
+    // vehicle's owner also happens to be a registered User (e.g. your
+    // own seeded accounts). NOT required — in a real deployment, most
+    // vehicle-registry owners won't be CIVIMAP users at all, so this
+    // must stay nullable rather than becoming a hard foreign key.
+    // Populate on demand with .populate("ownerUserId") when needed;
+    // not embedded, to avoid the two collections getting out of sync
+    // if the User's contact details change later.
+    ownerUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     address: {
       province: { type: String, default: null },
       district: { type: String, default: null },
@@ -65,6 +79,12 @@ const MockVehicleRegistrySchema = new Schema(
   },
   { timestamps: true }
 );
+
+/* ------------------------------------------------------------------ */
+/*  Indexes                                                             */
+/* ------------------------------------------------------------------ */
+
+MockVehicleRegistrySchema.index({ ownerUserId: 1 });
 
 /* ------------------------------------------------------------------ */
 /*  Hooks — normalize plate format before validation/save              */
@@ -107,6 +127,13 @@ MockVehicleRegistrySchema.statics.findByPlate = async function (rawPlateOrDigits
       (c) => plateNormalizer.extractDigitTail(c.plateNumber) === targetTail
     ) || null
   );
+};
+
+// NEW: finds every vehicle linked to a given citizen account — e.g. for
+// showing "your registered vehicles" somewhere in the citizen dashboard,
+// or for an admin looking up what a specific user owns.
+MockVehicleRegistrySchema.statics.findByOwnerUserId = function (userId) {
+  return this.find({ ownerUserId: userId, isActive: true });
 };
 
 module.exports = mongoose.model("MockVehicleRegistry", MockVehicleRegistrySchema);

@@ -4,6 +4,7 @@ import DashboardLayout from "../../components/dashboard/DashboardLayout";
 import ReportsPage from "./ReportsPage";
 import ViolationsPage from "./ViolationsPage";
 import EmergencyMonitorPage from "./EmergencyMonitorPage";
+import BroadcastPage from "./BroadcastPage"; // ADD
 import PlacesPage from "./PlacesPage";
 import { useLang } from "../../i18n/LanguageContext";
 
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: "violations", labelKey: "nav.violations", icon: "reports" },
   { id: "emergency", labelKey: "nav.emergency", icon: "emergency" },
   { id: "places", labelKey: "nav.places", icon: "map" },
+  { id: "broadcast", labelKey: "nav.broadcast", icon: "emergency" }, // ADD
 ];
 
 const PAGES = {
@@ -26,6 +28,7 @@ const PAGES = {
   violations: ViolationsPage,
   emergency: EmergencyMonitorPage,
   places: PlacesPage,
+  broadcast: BroadcastPage, // ADD
 };
 
 const TITLE_KEYS = {
@@ -34,6 +37,7 @@ const TITLE_KEYS = {
   violations: "nav.violations",
   emergency: "nav.emergency",
   places: "nav.places",
+  broadcast: "nav.broadcast", // ADD
 };
 
 export default function AdminDashboard() {
