@@ -10,9 +10,13 @@
     "lint": "eslint src"
   },
   "nodemonConfig": {
-    "watch": ["src"],
+    "watch": [
+      "src"
+    ],
     "ext": "js,mjs,cjs,json,env",
-    "ignore": ["src/uploads/*"]
+    "ignore": [
+      "src/uploads/*"
+    ]
   },
   "dependencies": {
     "axios": "^1.18.1",

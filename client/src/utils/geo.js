@@ -5,6 +5,8 @@
 // { type:"Point", coordinates:[lng,lat] } — this is the single place
 // that translates that into what Leaflet/UI code actually wants.
 
+import { fmtDigits } from "../i18n/numbers";
+
 export function toLatLng(location) {
   if (!location) return null;
   if (typeof location.lat === "number" && typeof location.lng === "number") {
@@ -112,10 +114,34 @@ export function distanceToPolylineKm(point, points) {
   return best;
 }
 
+// Short abbreviated form for on-screen display: "90 m", "1.2 km".
+// Always Latin digits/abbreviations regardless of app language — this is
+// the compact visual form, not what gets spoken. See formatDistanceSpoken
+// below for the TTS-friendly version.
 export function formatDistance(meters) {
   if (meters == null || Number.isNaN(meters)) return "";
   if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
   return `${(meters / 1000).toFixed(1)} km`;
+}
+
+// Full-word form for text-to-speech: "90 meters" / "1.2 kilometers" in
+// English, "९० मीटर" / "१.२ किलोमिटर" in Nepali. Neural TTS (Kokoro/Piper)
+// reads abbreviations like "m" or "km" awkwardly or as the literal letter
+// name — spelling the unit out fully reads naturally and is what a human
+// navigator would actually say out loud. Digits are converted to
+// Devanagari for lang === "ne" via fmtDigits (no-op for "en").
+export function formatDistanceSpoken(meters, lang = "en") {
+  if (meters == null || Number.isNaN(meters)) return "";
+  if (meters < 1000) {
+    const rounded = Math.max(10, Math.round(meters / 10) * 10);
+    return lang === "ne"
+      ? `${fmtDigits(String(rounded), "ne")} मीटर`
+      : `${rounded} meters`;
+  }
+  const km = (meters / 1000).toFixed(1);
+  return lang === "ne"
+    ? `${fmtDigits(km, "ne")} किलोमिटर`
+    : `${km} kilometers`;
 }
 
 export function formatDuration(seconds) {
@@ -137,5 +163,6 @@ export default {
   turnAngleDeg,
   distanceToPolylineKm,
   formatDistance,
+  formatDistanceSpoken,
   formatDuration,
 };

@@ -257,7 +257,7 @@ export default function WelcomePage() {
             transition={{ duration: 0.15 }}
             type="button"
             onClick={() => navigate("/login")}
-            className="w-full py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 mb-3"
+            className="w-full py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 mb-6"
             style={{
               backgroundColor: "var(--np-crimson)",
               color: "var(--text-on-brand)",
@@ -266,18 +266,6 @@ export default function WelcomePage() {
           >
             {t("welcome.login")}
             <ArrowIcon />
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.015, backgroundColor: "var(--surface-2)" }}
-            whileTap={{ scale: 0.985 }}
-            transition={{ duration: 0.15 }}
-            type="button"
-            onClick={() => navigate("/register")}
-            className="w-full py-3.5 rounded-xl font-semibold text-base text-text mb-6"
-            style={{ border: "1px solid var(--border-strong)", background: "transparent" }}
-          >
-            {t("welcome.register")}
           </motion.button>
 
           <motion.button

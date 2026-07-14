@@ -1,5 +1,5 @@
 // file: client/src/pages/user/dashboard/MapPage.jsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import MapView from "../../../components/map/MapView";
@@ -15,6 +15,13 @@ import { EASE } from "../../../config/tokens";
 import { toLatLng, haversineKm, geojsonLineToLatLngs, boundsFromLatLngs } from "../../../utils/geo";
 import { decodePolyline } from "../../../utils/polyline";
 import { primeVoice } from "../../../utils/voice";
+import {
+  matchCategoryFromQuery,
+  searchCuratedPlaces,
+  searchNominatim,
+  rankResults,
+  dedupeOsmAgainstCurated,
+} from "../../../utils/placeSearch";
 
 // Strings that don't exist yet in translations.js — kept local so this
 // page doesn't depend on an i18n file edit to ship. Move these into
@@ -27,7 +34,7 @@ const T = {
     from: "From",
     to: "To",
     useLocation: "Use current location",
-    tapMapOrPick: "Tap the map or pick a result",
+    tapMapOrPick: "Type an address, tap the map, or pick a result",
     go: "Go",
     routing: "Routing…",
     distance: "Distance",
@@ -49,7 +56,7 @@ const T = {
     from: "बाट",
     to: "सम्म",
     useLocation: "हालको स्थान प्रयोग गर्नुहोस्",
-    tapMapOrPick: "नक्सामा ट्याप गर्नुहोस् वा नतिजा छान्नुहोस्",
+    tapMapOrPick: "ठेगाना टाइप गर्नुहोस्, नक्सामा ट्याप गर्नुहोस्, वा नतिजा छान्नुहोस्",
     go: "जानुहोस्",
     routing: "मार्ग गणना हुँदै…",
     distance: "दूरी",
@@ -66,7 +73,93 @@ const T = {
   },
 };
 
-const CATEGORY_CHIPS = ["hospital", "school", "tourist", "sensitive"];
+// Fallback chip list — shown only until the real category list loads
+// from /places/categories (or if that call fails). Kept short and
+// mirrors the highest-traffic categories from the seed data.
+const DEFAULT_CATEGORY_CHIPS = [
+  "hospital",
+  "school",
+  "pharmacy",
+  "police_station",
+  "bank_atm",
+  "petrol_pump",
+  "transit_stop",
+  "government_office",
+  "tourist",
+  "historical",
+  "library",
+  "sensitive",
+];
+
+const GEOCODE_DEBOUNCE_MS = 400;
+
+/**
+ * Unified From/To search — merges the curated Places DB with nationwide
+ * OpenStreetMap/Nominatim results, ranked by distance from `origin`.
+ *
+ * If the typed query matches a known category keyword ("school",
+ * "अस्पताल", "atm"...) this searches ONLY the curated DB for that
+ * category, so "school near me" returns actual nearby schools instead of
+ * a grab-bag of unrelated OSM address matches. See utils/placeSearch.js
+ * for the keyword table — extend it there when adding new categories.
+ *
+ * Otherwise it's a general free-text search: curated matches first
+ * (verified data), then OSM results for anything the curated DB doesn't
+ * have, deduped against anything the curated DB already returned.
+ */
+function useUnifiedSearch(query, places, origin) {
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef(null);
+  const abortRef = useRef(null);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoading(true);
+      try {
+        const matchedCategory = matchCategoryFromQuery(q);
+        let merged;
+        if (matchedCategory) {
+          // "school near me" style query — trust the curated/verified DB only.
+          merged = searchCuratedPlaces(places, q, matchedCategory);
+        } else {
+          const curated = searchCuratedPlaces(places, q, null);
+          const osm = await searchNominatim(q, origin, controller.signal);
+          merged = [...curated, ...dedupeOsmAgainstCurated(osm, curated)];
+        }
+        setResults(rankResults(merged, origin).slice(0, 12));
+      } catch (err) {
+        if (err.name !== "AbortError") console.error("Unified search failed", err);
+      } finally {
+        setLoading(false);
+      }
+    }, GEOCODE_DEBOUNCE_MS);
+    return () => clearTimeout(debounceRef.current);
+  }, [query, places, origin?.lat, origin?.lng]);
+
+  return { results, loading };
+}
+
+/** Closes a dropdown when a click lands outside `ref`'s subtree. */
+function useClickOutside(ref, onOutside) {
+  useEffect(() => {
+    function handle(e) {
+      if (ref.current && !ref.current.contains(e.target)) onOutside();
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [ref, onOutside]);
+}
 
 export default function MapPage() {
   const { user } = useAuth?.() ?? {};
@@ -77,6 +170,7 @@ export default function MapPage() {
   const [places, setPlaces] = useState([]);
   const [reports, setReports] = useState([]);
   const [violations, setViolations] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORY_CHIPS);
 
   const [from, setFrom] = useState(null); // {lat,lng,label}
   const [to, setTo] = useState(null);
@@ -94,6 +188,36 @@ export default function MapPage() {
   const [navigating, setNavigating] = useState(false);
 
   const [connected, setConnected] = useState(socket.connected);
+
+  // Free-text address search state (From/To), independent of the curated
+  // "nearby" places list below.
+  const [fromQuery, setFromQuery] = useState("");
+  const [toQuery, setToQuery] = useState("");
+  const [fromOpen, setFromOpen] = useState(false);
+  const [toOpen, setToOpen] = useState(false);
+  const fromBoxRef = useRef(null);
+  const toBoxRef = useRef(null);
+
+  // Silent, low-accuracy location grab used ONLY to bias/rank search
+  // results (nearest-first) — this never sets `from`, never prompts the
+  // "use current location" flow, and failing silently is fine here since
+  // it's just a ranking hint, not something the user explicitly asked for.
+  const [myLocation, setMyLocation] = useState(null);
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
+  }, []);
+
+  const searchOrigin = from ?? myLocation;
+  const { results: fromResults, loading: fromLoading } = useUnifiedSearch(fromQuery, places, searchOrigin);
+  const { results: toResults, loading: toLoading } = useUnifiedSearch(toQuery, places, searchOrigin);
+
+  useClickOutside(fromBoxRef, () => setFromOpen(false));
+  useClickOutside(toBoxRef, () => setToOpen(false));
 
   // Passed to MapView's `flyTo` prop. Memoized by *value* (lat/lng), not
   // just by the `flyTo` state reference — MapView also guards against
@@ -132,6 +256,27 @@ export default function MapPage() {
     load();
     return () => { cancelled = true; };
   }, [isAdmin]);
+
+  // ---- Category list — was hardcoded to 4 categories (hospital, school,
+  // tourist, sensitive), which hid everything else already sitting in the
+  // seeded database (pharmacy, bank_atm, petrol_pump, police_station,
+  // transit_stop, government_office, historical, library). This endpoint
+  // already existed server-side; nothing was calling it. ----
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/places/categories")
+      .then((res) => {
+        const list = res.data?.data?.categories;
+        if (!cancelled && Array.isArray(list) && list.length > 0) setCategories(list);
+      })
+      .catch(() => {
+        // Keep DEFAULT_CATEGORY_CHIPS on failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ---- Socket lifecycle ----
   useEffect(() => {
@@ -202,6 +347,7 @@ export default function MapPage() {
       (pos) => {
         const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude, label: nt.useLocation };
         setFrom(pt);
+        setFromQuery(""); // fall back to showing pt.label instead of a stale typed query
         setFlyTo(pt);
         setLocating(false);
       },
@@ -213,14 +359,32 @@ export default function MapPage() {
     );
   }, [nt]);
 
+  // ---- Search result pick (From/To free-text search — curated DB or OSM) ----
+  function pickSearchResult(which, result) {
+    const pt = { lat: result.lat, lng: result.lng, label: result.label };
+    if (which === "from") {
+      setFrom(pt);
+      setFromQuery("");
+      setFromOpen(false);
+      if (to) computeRoute(pt, to);
+    } else {
+      setTo(pt);
+      setToQuery("");
+      setToOpen(false);
+      if (from) computeRoute(from, pt);
+    }
+  }
+
   // ---- Ranked nearby search (README §3.3 + Nepal-context category search) ----
   const nearbyResults = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const originLatLng = from ? [from.lat, from.lng] : null;
+    const matchedCategory = matchCategoryFromQuery(q);
+    const originLatLng = from ? [from.lat, from.lng] : myLocation ? [myLocation.lat, myLocation.lng] : null;
 
     return places
       .filter((p) => {
         if (category && p.category !== category) return false;
+        if (matchedCategory) return p.category === matchedCategory;
         if (q && !p.name?.toLowerCase().includes(q) && !p.category?.toLowerCase().includes(q)) return false;
         return true;
       })
@@ -232,7 +396,7 @@ export default function MapPage() {
       .filter((p) => p.__pos)
       .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
       .slice(0, 15);
-  }, [places, query, category, from]);
+  }, [places, query, category, from, myLocation]);
 
   // ---- Route computation ----
   const computeRoute = useCallback(async (fromPt, toPt) => {
@@ -265,6 +429,7 @@ export default function MapPage() {
     const pos = place.__pos;
     const dest = { lat: pos[0], lng: pos[1], label: place.name };
     setTo(dest);
+    setToQuery(""); // fall back to showing dest.label instead of a stale typed query
     if (from) computeRoute(from, dest);
   }
 
@@ -313,6 +478,7 @@ export default function MapPage() {
     (latlng) => {
       const dest = { ...latlng, label: `${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}` };
       setTo(dest);
+      setToQuery("");
       if (from) computeRoute(from, dest);
     },
     [from, computeRoute]
@@ -362,33 +528,98 @@ export default function MapPage() {
         <div className="surface-card rounded-lg p-4 space-y-4" style={{ background: "var(--surface)" }}>
           {/* From / To */}
           <div className="space-y-2">
-            <div>
+            <div ref={fromBoxRef} className="relative">
               <label className="text-xs" style={{ color: "var(--text-muted)" }}>{nt.from}</label>
-              <button
-                type="button"
-                onClick={useMyLocation}
-                disabled={locating}
-                className="lux-input w-full text-left text-sm rounded-lg px-3 py-2 flex items-center gap-2 disabled:opacity-60"
-              >
-                {locating ? (
-                  <span className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--np-blue)" strokeWidth="1.8" className="w-3.5 h-3.5 shrink-0">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-                  </svg>
-                )}
-                <span style={{ color: from ? "var(--text)" : "var(--text-placeholder)" }}>
-                  {from?.label ?? nt.useLocation}
-                </span>
-              </button>
-            </div>
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>{nt.to}</label>
-              <div className="lux-input w-full text-sm rounded-lg px-3 py-2" style={{ color: to ? "var(--text)" : "var(--text-placeholder)" }}>
-                {to?.label ?? nt.tapMapOrPick}
+              <div className="lux-input w-full flex items-center gap-2 rounded-lg px-3 py-2">
+                <button type="button" onClick={useMyLocation} disabled={locating} className="shrink-0 disabled:opacity-60">
+                  {locating ? (
+                    <span className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin block" />
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--np-blue)" strokeWidth="1.8" className="w-3.5 h-3.5">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                    </svg>
+                  )}
+                </button>
+                <input
+                  className="w-full bg-transparent text-sm outline-none"
+                  style={{ color: "var(--text)" }}
+                  placeholder={nt.useLocation}
+                  value={fromQuery || from?.label || ""}
+                  onChange={(e) => {
+                    setFromQuery(e.target.value);
+                    setFromOpen(true);
+                  }}
+                  onFocus={() => setFromOpen(true)}
+                />
               </div>
+              {fromOpen && (fromResults.length > 0 || fromLoading) && (
+                <div
+                  className="absolute z-10 mt-1 w-full rounded-lg overflow-hidden shadow-lg max-h-64 overflow-y-auto"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  {fromLoading && (
+                    <div className="px-3 py-2 text-xs" style={{ color: "var(--text-faint)" }}>…</div>
+                  )}
+                  {fromResults.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => pickSearchResult("from", r)}
+                      className="w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2"
+                      style={{ color: "var(--text)" }}
+                    >
+                      <span className="truncate">{r.label}</span>
+                      <span className="text-[10px] shrink-0" style={{ color: "var(--text-faint)" }}>
+                        {r.category ? t(`places.category.${r.category}`) || r.category : ""}
+                        {r.distanceKm != null ? ` · ${r.distanceKm.toFixed(1)}km` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <div ref={toBoxRef} className="relative">
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>{nt.to}</label>
+              <input
+                className="lux-input w-full text-sm rounded-lg px-3 py-2 outline-none"
+                style={{ color: "var(--text)" }}
+                placeholder={nt.tapMapOrPick}
+                value={toQuery || to?.label || ""}
+                onChange={(e) => {
+                  setToQuery(e.target.value);
+                  setToOpen(true);
+                }}
+                onFocus={() => setToOpen(true)}
+              />
+              {toOpen && (toResults.length > 0 || toLoading) && (
+                <div
+                  className="absolute z-10 mt-1 w-full rounded-lg overflow-hidden shadow-lg max-h-64 overflow-y-auto"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  {toLoading && (
+                    <div className="px-3 py-2 text-xs" style={{ color: "var(--text-faint)" }}>…</div>
+                  )}
+                  {toResults.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => pickSearchResult("to", r)}
+                      className="w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2"
+                      style={{ color: "var(--text)" }}
+                    >
+                      <span className="truncate">{r.label}</span>
+                      <span className="text-[10px] shrink-0" style={{ color: "var(--text-faint)" }}>
+                        {r.category ? t(`places.category.${r.category}`) || r.category : ""}
+                        {r.distanceKm != null ? ` · ${r.distanceKm.toFixed(1)}km` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <form onSubmit={handleRouteSearch}>
               <button
                 type="submit"
@@ -448,11 +679,14 @@ export default function MapPage() {
             )}
           </AnimatePresence>
 
-          {/* Category chips */}
-          <div className="flex flex-wrap gap-1.5">
+          {/* Category chips — now populated from /places/categories instead
+              of a hardcoded 4-item list, so every seeded category is
+              reachable. Horizontal scroll since the full list won't wrap
+              cleanly on a narrow panel. */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
             <button
               onClick={() => setCategory(null)}
-              className="text-xs rounded-full px-3 py-1 border transition-colors"
+              className="text-xs rounded-full px-3 py-1 border transition-colors shrink-0"
               style={{
                 borderColor: "var(--border)",
                 background: !category ? "var(--np-blue)" : "transparent",
@@ -461,18 +695,18 @@ export default function MapPage() {
             >
               {nt.all}
             </button>
-            {CATEGORY_CHIPS.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory((prev) => (prev === c ? null : c))}
-                className="text-xs rounded-full px-3 py-1 border transition-colors"
+                className="text-xs rounded-full px-3 py-1 border transition-colors shrink-0"
                 style={{
                   borderColor: "var(--border)",
                   background: category === c ? "var(--np-blue)" : "transparent",
                   color: category === c ? "var(--text-on-brand)" : "var(--text-muted)",
                 }}
               >
-                {t(`places.category.${c}`)}
+                {t(`places.category.${c}`) || c}
               </button>
             ))}
           </div>
@@ -548,6 +782,7 @@ export default function MapPage() {
             lang={lang}
             onRouteUpdate={setRoute}
             onExit={() => setNavigating(false)}
+            signals={corridorSignals}
           />
         )}
       </AnimatePresence>

@@ -12,3 +12,6 @@ paddlepaddle>=2.6.0
 # ocr_version (PP-OCRv6) silently dropped Devanagari support, which is
 # what broke plate_detection.py. Do not leave this unpinned again.
 paddleocr>=2.7.0
+pykokoro
+soundfile
+piper-tts

@@ -74,9 +74,6 @@ async function logout(req, res, next) {
   }
 }
 
-// NEW: revokes every refresh token belonging to this account (all
-// devices/sessions), then clears the cookie on the current device too —
-// so the caller ends up logged out here exactly like everywhere else.
 async function logoutAll(req, res, next) {
   try {
     await tokenService.revokeAllSessions(req.account._id, req.accountType);
@@ -87,10 +84,22 @@ async function logoutAll(req, res, next) {
   }
 }
 
+// Reads the citizen's currently-selected UI language off the X-Lang
+// header sent by client/src/services/api.js (falls back to "en" if
+// missing/invalid). This is what tells otpService/emailService which
+// language to render the OTP email in — NOT user.languagePref, since
+// this request fires before the citizen is authenticated and their
+// stored preference may be stale or unset.
+function getRequestLang(req) {
+  const header = req.headers["x-lang"];
+  return header === "ne" ? "ne" : "en";
+}
+
 async function requestOtp(req, res, next) {
   try {
     const { identifier } = req.body;
-    const result = await otpService.requestLoginOtp(identifier, req.ip);
+    const lang = getRequestLang(req);
+    const result = await otpService.requestLoginOtp(identifier, req.ip, lang);
     return ApiResponse.ok(res, result, "Verification code sent");
   } catch (err) {
     next(err);
@@ -125,14 +134,6 @@ async function getMe(req, res, next) {
   }
 }
 
-// NEW: profile self-service update. Only ever touches the citizen-facing
-// allow-list enforced by validators/authValidators.js's
-// updateProfileSchema (fullName, dateOfBirth, gender, address,
-// languagePref, theme, notificationPrefs) — Joi's schema (no
-// .unknown(true)) already strips anything else, this is a second,
-// explicit belt-and-braces guard against sending untouched fields
-// (email, phone, role, trustScore, stats, verification flags, etc.)
-// straight into User.findByIdAndUpdate from req.body.
 const PROFILE_UPDATABLE_FIELDS = [
   "fullName",
   "dateOfBirth",
@@ -166,12 +167,6 @@ async function updateProfile(req, res, next) {
   }
 }
 
-// NEW: replaces the citizen's avatar. Uploads the new image first, saves
-// it, THEN deletes the old Cloudinary asset — in that order, so a failed
-// upload never leaves the account with no photo at all. The old-image
-// delete itself doesn't need to block the response (deleteImage() logs
-// its own failures — see cloudinary.js), but we still fire it before
-// responding rather than losing track of it entirely.
 async function uploadAvatar(req, res, next) {
   try {
     if (req.accountType !== "citizen") {
@@ -189,7 +184,7 @@ async function uploadAvatar(req, res, next) {
     await user.save({ validateBeforeSave: false });
 
     if (oldPublicId) {
-      deleteImage(oldPublicId); // best-effort cleanup of the replaced asset
+      deleteImage(oldPublicId);
     }
 
     return ApiResponse.ok(res, { user: sanitizeUser(user) }, "Profile picture updated");
@@ -198,10 +193,6 @@ async function uploadAvatar(req, res, next) {
   }
 }
 
-// NEW: removes the citizen's avatar and deletes the underlying
-// Cloudinary asset. Unlike the "replace" path above, deletion here IS
-// the point of the action, so it's awaited — the client only sees
-// "removed" after Cloudinary has actually confirmed the delete.
 async function removeAvatar(req, res, next) {
   try {
     if (req.accountType !== "citizen") {

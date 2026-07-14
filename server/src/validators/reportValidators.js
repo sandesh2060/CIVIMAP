@@ -48,7 +48,10 @@ const listReportsQuerySchema = Joi.object({
     .pattern(/^-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?$/)
     .optional(),
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  // was max(100) — ReportsPage.jsx requests limit: 500, which Joi was
+  // rejecting with a 400. Raised to 1000; revisit with real server-side
+  // pagination if report volume ever gets into the thousands.
+  limit: Joi.number().integer().min(1).max(1000).default(20),
 });
 
 module.exports = {

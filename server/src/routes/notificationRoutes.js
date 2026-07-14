@@ -23,4 +23,7 @@ router.post(
   notificationController.broadcast
 );
 
+router.get("/broadcasts", protect, adminOnly(), notificationController.listBroadcasts);
+router.delete("/broadcasts/:id", protect, adminOnly(), notificationController.deleteBroadcast);
+
 module.exports = router;

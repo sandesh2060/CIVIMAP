@@ -1,10 +1,11 @@
 // file: client/src/pages/admin/ReportsPage.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../../services/api";
 import { useLang } from "../../i18n/LanguageContext";
 import { fmtNum } from "../../i18n/numbers";
 import { EASE } from "../../config/tokens";
+import { useCachedFetch, invalidateCache } from "../../hooks/useCachedFetch";
 
 const STATUS_STYLE = {
   pending: { bg: "var(--crimson-soft)", color: "var(--np-crimson)" },
@@ -62,6 +63,13 @@ function MapLink(props) {
   return <a href={props.href} target="_blank" rel="noreferrer" className="text-xs font-medium" style={linkStyle}>{props.children}</a>;
 }
 
+const CACHE_KEY = "admin:reports";
+
+async function loadReports() {
+  const res = await api.get("/reports", { params: { page: 1, limit: 500 } });
+  return res.data.data.reports || [];
+}
+
 export default function ReportsPage() {
   const { t, lang } = useLang();
 
@@ -70,28 +78,10 @@ export default function ReportsPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
-
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [reviewing, setReviewing] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get("/reports", { params: { page: 1, limit: 500 } });
-      setReports(res.data.data.reports || []);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { data: reportsData, loading, error, refresh, setData } = useCachedFetch(CACHE_KEY, loadReports);
+  const reports = reportsData || [];
 
   const filtered = useMemo(() => {
     return reports.filter((r) => {
@@ -129,8 +119,13 @@ export default function ReportsPage() {
     try {
       const res = await api.patch("/reports/" + id + "/review", { decision: decision });
       const updated = res.data.data.report;
-      setReports((prev) => prev.map((r) => (r._id === id ? updated : r)));
+      const next = reports.map((r) => (r._id === id ? updated : r));
+      setData(next);
       setSelected(updated);
+      // Overview's pending/total counts derive from this same data —
+      // drop it so the next visit there re-fetches instead of showing
+      // a stale pending count.
+      invalidateCache("admin:overview");
     } catch (err) {
       console.error("Review failed", err);
     } finally {
@@ -138,11 +133,11 @@ export default function ReportsPage() {
     }
   }
 
-  if (error) {
+  if (error && reports.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-muted text-sm">{t("reports.errorLoading")}</p>
-        <button onClick={load} className="px-4 h-10 rounded-lg text-white text-sm font-medium" style={{ background: "var(--np-crimson)" }}>
+        <button onClick={refresh} className="px-4 h-10 rounded-lg text-white text-sm font-medium" style={{ background: "var(--np-crimson)" }}>
           {t("reports.retry")}
         </button>
       </div>
@@ -193,7 +188,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="bg-surface border border-border rounded-lg shadow-sm overflow-hidden">
-        {loading ? (
+        {loading && reports.length === 0 ? (
           <div className="p-12 text-center text-muted text-sm">{t("common.loading")}…</div>
         ) : pageRows.length === 0 ? (
           <div className="p-12 text-center text-muted">{t("reports.noResults")}</div>

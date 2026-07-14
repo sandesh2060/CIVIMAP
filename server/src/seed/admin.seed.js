@@ -1,7 +1,6 @@
 // file: server/src/seed/admin.seed.js
 require("dotenv").config();
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
 const { env } = require("../config/env");
 const Admin = require("../models/admin/Admin");
 
@@ -15,12 +14,17 @@ async function seedAdmin() {
     return existing;
   }
 
-  const passwordHash = await bcrypt.hash("Admin@12345", 10);
-
+  // Pass the PLAIN password here — Admin.js's pre-save hook hashes it
+  // exactly once automatically (same pattern as authService.registerCitizen
+  // for User.js). Pre-hashing it ourselves before Admin.create() was the
+  // bug: create() triggers save(), the hook sees passwordHash as a
+  // modified field on a new doc and hashes it again, producing a
+  // double-hashed string that no single bcrypt.compare() can ever match.
   const admin = await Admin.create({
     fullName: "Sandesh Sharma",
     email: "admin@civimap.gov.np",
-    passwordHash,
+    passwordHash: "Admin@12345",
+    role: "superadmin",
     permissions: {
       canManageSignals: true,
       canManagePlaces: true,

@@ -1,10 +1,11 @@
 // file: client/src/pages/admin/ViolationsPage.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../../services/api";
 import { useLang } from "../../i18n/LanguageContext";
 import { fmtNum } from "../../i18n/numbers";
 import { EASE } from "../../config/tokens";
+import { useCachedFetch, invalidateCache } from "../../hooks/useCachedFetch";
 
 const STATUS_STYLE = {
   detected: { bg: "var(--surface2)", color: "var(--muted)" },
@@ -65,6 +66,13 @@ function MapLink(props) {
   return <a href={props.href} target="_blank" rel="noreferrer" className="text-xs font-medium" style={linkStyle}>{props.children}</a>;
 }
 
+const CACHE_KEY = "admin:violations";
+
+async function loadViolations() {
+  const res = await api.get("/violations", { params: { page: 1, limit: 500 } });
+  return res.data.data.violations || [];
+}
+
 export default function ViolationsPage() {
   const { t, lang } = useLang();
 
@@ -72,28 +80,10 @@ export default function ViolationsPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
-
-  const [violations, setViolations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [reviewing, setReviewing] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get("/violations", { params: { page: 1, limit: 500 } });
-      setViolations(res.data.data.violations || []);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { data: violationsData, loading, error, refresh, setData } = useCachedFetch(CACHE_KEY, loadViolations);
+  const violations = violationsData || [];
 
   const filtered = useMemo(() => {
     return violations.filter((v) => {
@@ -131,8 +121,10 @@ export default function ViolationsPage() {
     try {
       const res = await api.patch("/violations/" + id + "/review", { decision: decision });
       const updated = res.data.data.violation;
-      setViolations((prev) => prev.map((v) => (v._id === id ? updated : v)));
+      const next = violations.map((v) => (v._id === id ? updated : v));
+      setData(next);
       setSelected(updated);
+      invalidateCache("admin:overview");
     } catch (err) {
       console.error("Review failed", err);
     } finally {
@@ -140,11 +132,11 @@ export default function ViolationsPage() {
     }
   }
 
-  if (error) {
+  if (error && violations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-muted text-sm">{t("reports.errorLoading")}</p>
-        <button onClick={load} className="px-4 h-10 rounded-lg text-white text-sm font-medium" style={{ background: "var(--np-crimson)" }}>
+        <button onClick={refresh} className="px-4 h-10 rounded-lg text-white text-sm font-medium" style={{ background: "var(--np-crimson)" }}>
           {t("reports.retry")}
         </button>
       </div>
@@ -190,7 +182,7 @@ export default function ViolationsPage() {
       </div>
 
       <div className="bg-surface border border-border rounded-lg shadow-sm overflow-hidden">
-        {loading ? (
+        {loading && violations.length === 0 ? (
           <div className="p-12 text-center text-muted text-sm">{t("common.loading")}…</div>
         ) : pageRows.length === 0 ? (
           <div className="p-12 text-center text-muted">{t("reports.noResults")}</div>

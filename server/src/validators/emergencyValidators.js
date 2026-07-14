@@ -19,7 +19,10 @@ const listAlertsQuerySchema = Joi.object({
   status: Joi.string().valid("dispatched", "acknowledged", "resolved").optional(),
   category: Joi.string().valid("ambulance", "fire", "police", "rescue").optional(),
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  // was max(100) — OverviewPage.jsx/EmergencyMonitorPage.jsx requested
+  // larger limits, causing a 400 that took down the whole Promise.all
+  // on Overview. Raised to match reportValidators/violationValidators.
+  limit: Joi.number().integer().min(1).max(1000).default(20),
 });
 
 const listContactsQuerySchema = Joi.object({

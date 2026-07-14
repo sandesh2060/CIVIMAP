@@ -16,6 +16,20 @@ L.Icon.Default.mergeOptions({
 
 // Kathmandu — sensible default center until the user's location resolves.
 const DEFAULT_CENTER = [27.7172, 85.324];
+const DEFAULT_ZOOM = 14;
+
+function isValidLatLng(pair) {
+  return Array.isArray(pair) && Number.isFinite(pair[0]) && Number.isFinite(pair[1]);
+}
+
+// zoom must be a finite number — `??` alone doesn't catch NaN, since NaN
+// isn't nullish. A NaN zoom doesn't fail immediately; it poisons Leaflet's
+// flyTo() animation math mid-flight (see FlyToController below), which is
+// why this crash showed up inside frame()/unproject rather than at the
+// call site itself.
+function safeZoomOr(zoom, fallback) {
+  return Number.isFinite(zoom) ? zoom : fallback;
+}
 
 /**
  * Watches the map's current bounds and tells the server which viewport
@@ -81,21 +95,48 @@ function SizeFix() {
  * time something unrelated (a socket tick, a re-render higher up) fired.
  *
  * Fix: compare the actual lat/lng values against the last point we flew
- * to, and only call flyTo() when they genuinely changed.
+ * to, and only call flyTo() when they genuinely changed. Also guards
+ * against NaN/undefined coordinates AND a NaN zoom — either one reaching
+ * Leaflet's flyTo() corrupts the animation and throws "Invalid LatLng".
  */
 function FlyToController({ center, zoom }) {
   const map = useMap();
   const lastFlownRef = useRef(null);
 
   useEffect(() => {
-    if (!center) return;
+    if (!isValidLatLng(center)) return;
     const [lat, lng] = center;
     const last = lastFlownRef.current;
     const unchanged = last && Math.abs(last[0] - lat) < 1e-6 && Math.abs(last[1] - lng) < 1e-6;
     if (unchanged) return;
 
-    lastFlownRef.current = [lat, lng];
-    map.flyTo([lat, lng], zoom ?? map.getZoom(), { duration: 0.8 });
+    let cancelled = false;
+
+   
+    function flyWhenSized() {
+      if (cancelled) return;
+      const size = map.getSize();
+      if (size.x === 0 || size.y === 0) {
+        map.invalidateSize();
+        requestAnimationFrame(flyWhenSized);
+        return;
+      }
+
+      lastFlownRef.current = [lat, lng];
+      const safeZoom = safeZoomOr(zoom, map.getZoom());
+      const current = map.getCenter();
+      const distMeters = current.distanceTo(L.latLng(lat, lng));
+      if (distMeters < 30) {
+        map.setView([lat, lng], safeZoom);
+      } else {
+        map.flyTo([lat, lng], safeZoom, { duration: 0.8 });
+      }
+    }
+
+    flyWhenSized();
+    return () => {
+      cancelled = true;
+    };
   }, [center, zoom, map]);
 
   return null;
@@ -112,10 +153,15 @@ function ClickCapture({ onMapClick }) {
 }
 
 export default function MapView({ center, zoom = 14, flyTo, onMapClick, children }) {
-  const initialCenter = useMemo(() => center ?? DEFAULT_CENTER, [center]);
+  const initialCenter = useMemo(
+    () => (isValidLatLng(center) ? center : DEFAULT_CENTER),
+    [center]
+  );
+  const safeInitialZoom = safeZoomOr(zoom, DEFAULT_ZOOM);
+  const safeFlyTo = isValidLatLng(flyTo) ? flyTo : null;
 
   return (
-    <MapContainer center={initialCenter} zoom={zoom} scrollWheelZoom style={{ width: "100%", height: "100%" }}>
+    <MapContainer center={initialCenter} zoom={safeInitialZoom} scrollWheelZoom style={{ width: "100%", height: "100%" }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -124,7 +170,7 @@ export default function MapView({ center, zoom = 14, flyTo, onMapClick, children
       <SizeFix />
       <ViewportSync />
       <ClickCapture onMapClick={onMapClick} />
-      {flyTo && <FlyToController center={flyTo} zoom={zoom} />}
+      {safeFlyTo && <FlyToController center={safeFlyTo} zoom={safeInitialZoom} />}
       {children}
     </MapContainer>
   );

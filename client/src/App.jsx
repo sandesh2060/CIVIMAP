@@ -5,7 +5,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 //user pages
 import LoginPage from "./pages/user/LoginPage";
-import RegisterPage from "./pages/user/RegisterPage";
 import WelcomePage from "./pages/user/WelcomePage";
 import UserDashboard from "./pages/user/dashboard/UserDashboard";
 //admin pages
@@ -23,7 +22,6 @@ const App = () => {
           {/* user routes */}
           <Route path="/" element={<WelcomePage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
 
           {/* /dashboard and /dashboard/:tab both render UserDashboard —
               kept as two explicit routes (rather than one "/dashboard/:tab?"

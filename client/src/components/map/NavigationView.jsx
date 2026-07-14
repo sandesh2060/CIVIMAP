@@ -5,6 +5,7 @@ import L from "leaflet";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../../services/api";
 import RouteLayer from "./RouteLayer";
+import SignalCountdown from "./SignalCountdown";
 import { getInstruction } from "../../utils/maneuvers";
 import { speak, stopSpeaking, setVoiceEnabled, isVoiceSupported } from "../../utils/voice";
 import {
@@ -13,6 +14,7 @@ import {
   bearingDeg,
   haversineKm,
   formatDistance,
+  formatDistanceSpoken,
   formatDuration,
 } from "../../utils/geo";
 import { decodePolyline } from "../../utils/polyline";
@@ -92,6 +94,83 @@ function ManeuverIcon({ kind, turnAngle }) {
   );
 }
 
+// Compass events can fire up to ~60/sec — re-rendering the whole nav view
+// that often is wasted work when the visible transition is CSS-eased
+// over 0.3s anyway. Coalesce to roughly 10 updates/sec instead.
+const COMPASS_THROTTLE_MS = 100;
+
+/**
+ * Reads device compass heading (true-north-referenced), independent of
+ * GPS. Two absolute-orientation sources exist across browsers:
+ *  - `deviceorientationabsolute` — standard event, most Android browsers.
+ *    `event.alpha` there is the device's facing direction counter-clockwise
+ *    from north, so heading = (360 - alpha) % 360.
+ *  - iOS Safari doesn't reliably fire the "absolute" event but exposes a
+ *    non-standard `event.webkitCompassHeading` on the plain
+ *    `deviceorientation` event, already true-north-referenced — prefer
+ *    that when present instead of trying to derive it from alpha.
+ *
+ * iOS 13+ requires `DeviceOrientationEvent.requestPermission()` to be
+ * called from inside a user gesture (a click), so this hook exposes
+ * `needsPermission` / `requestPermission` for the caller to render a
+ * button rather than trying (and silently failing) to request on mount.
+ */
+function useCompassHeading(enabled) {
+  const [compassHeading, setCompassHeading] = useState(null);
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const lastUpdateRef = useRef(0);
+
+  const requestPermission = useCallback(async () => {
+    try {
+      const result = await DeviceOrientationEvent.requestPermission();
+      if (result === "granted") {
+        setNeedsPermission(false);
+      } else {
+        setPermissionDenied(true);
+      }
+    } catch (err) {
+      setPermissionDenied(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const hasIOSPermissionAPI =
+      typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function";
+    if (hasIOSPermissionAPI) setNeedsPermission(true);
+
+    const handleOrientation = (e) => {
+      const now = Date.now();
+      if (now - lastUpdateRef.current < COMPASS_THROTTLE_MS) return;
+
+      let heading = null;
+      if (typeof e.webkitCompassHeading === "number") {
+        heading = e.webkitCompassHeading; // iOS: already true-north-referenced
+      } else if (e.absolute && e.alpha != null) {
+        heading = (360 - e.alpha) % 360;
+      }
+      if (heading == null || Number.isNaN(heading)) return;
+
+      lastUpdateRef.current = now;
+      setCompassHeading(heading);
+    };
+
+    // Prefer the explicitly-absolute event where supported; also listen
+    // on plain deviceorientation for iOS's webkitCompassHeading, which
+    // only ever arrives on that event name.
+    window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+    window.addEventListener("deviceorientation", handleOrientation, true);
+    return () => {
+      window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
+      window.removeEventListener("deviceorientation", handleOrientation, true);
+    };
+  }, [enabled]);
+
+  return { compassHeading, needsPermission, permissionDenied, requestPermission };
+}
+
 /** Locks the camera on the driver's current position, following each GPS fix. */
 function FollowCamera({ position, zoom }) {
   const map = useMap();
@@ -112,7 +191,14 @@ function FollowCamera({ position, zoom }) {
   return null;
 }
 
-export default function NavigationView({ route, destination, lang = "en", onExit, onRouteUpdate }) {
+export default function NavigationView({
+  route,
+  destination,
+  lang = "en",
+  onExit,
+  onRouteUpdate,
+  signals = [], // corridor-scoped signals from MapPage, same list MapView renders
+}) {
   const nt = NT[lang] ?? NT.en;
 
   const [navRoute, setNavRoute] = useState(route);
@@ -133,6 +219,11 @@ export default function NavigationView({ route, destination, lang = "en", onExit
   const lastPositionRef = useRef(null);
   const watchIdRef = useRef(null);
   const stageRef = useRef(null);
+  // True while a recent GPS fix is itself a reliable heading source (fast
+  // enough movement) — compass updates defer to it instead of fighting it.
+  const gpsHeadingActiveRef = useRef(false);
+
+  const { compassHeading, needsPermission, permissionDenied, requestPermission } = useCompassHeading(true);
 
   useEffect(() => {
     routeRef.current = navRoute;
@@ -209,9 +300,15 @@ export default function NavigationView({ route, destination, lang = "en", onExit
       const { text } = getInstruction(step, isLast, lang);
       const a = (announcedRef.current[idx] = announcedRef.current[idx] || {});
 
+      // Spoken announcements use formatDistanceSpoken() (full words, and
+      // Devanagari digits for Nepali), NOT formatDistance() — the latter
+      // is the compact on-screen form ("250 m") and feeding Latin digits
+      // + abbreviated units into Piper's Nepali phonemizer mid-sentence
+      // is what was making the "In 250m, turn right" announcements sound
+      // unclear even though the underlying voice model is fine.
       if (!a.far && distToManeuverM <= ANNOUNCE_FAR_M && distToManeuverM > ANNOUNCE_NEAR_M) {
         a.far = true;
-        speak(nt.inPrefix(formatDistance(distToManeuverM), text), lang);
+        speak(nt.inPrefix(formatDistanceSpoken(distToManeuverM, lang), text), lang);
       }
       if (!a.near && distToManeuverM <= ANNOUNCE_NEAR_M) {
         a.near = true;
@@ -262,13 +359,21 @@ export default function NavigationView({ route, destination, lang = "en", onExit
       setLocError(null);
 
       setHeading((prevHeading) => {
-        // Prefer the device's own compass/GPS heading when it's moving
-        // fast enough for it to be reliable; otherwise fall back to the
-        // bearing between the last two fixes, and hold the last known
-        // heading rather than jitter when basically stationary.
+        // Prefer the device's own GPS-derived heading when it's moving
+        // fast enough for it to be reliable (accurate in a moving vehicle,
+        // where the compass can be thrown off by the engine/chassis).
         if (gpsHeading != null && !Number.isNaN(gpsHeading) && (speed == null || speed > 0.5)) {
+          gpsHeadingActiveRef.current = true;
           return gpsHeading;
         }
+        gpsHeadingActiveRef.current = false;
+
+        // Next best: the device compass, which is what makes the map
+        // rotate when you simply turn your body/phone while stationary
+        // or moving slowly — GPS heading alone can't do that.
+        if (compassHeading != null) return compassHeading;
+
+        // Fallback: bearing between the last two fixes.
         const last = lastPositionRef.current;
         if (last) {
           const movedM = haversineKm([last.lat, last.lng], [next.lat, next.lng]) * 1000;
@@ -297,6 +402,14 @@ export default function NavigationView({ route, destination, lang = "en", onExit
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processFix, nt.locError]);
+
+  // Compass events arrive far more often than GPS fixes — apply them as
+  // soon as they land (unless a fast-moving GPS fix currently owns
+  // heading), rather than waiting for the next `handleFix` to notice.
+  useEffect(() => {
+    if (compassHeading == null || gpsHeadingActiveRef.current) return;
+    setHeading(compassHeading);
+  }, [compassHeading]);
 
   const steps = navRoute?.steps || [];
   const currentStep = steps[stepIndex];
@@ -368,6 +481,11 @@ export default function NavigationView({ route, destination, lang = "en", onExit
               maxZoom={19}
             />
             <RouteLayer route={navRoute} />
+            {/* Corridor-scoped signal countdowns — same markers MapView
+                renders, now also live during turn-by-turn navigation. */}
+            {signals.map((signal) => (
+              <SignalCountdown key={signal.signalId} initial={signal} />
+            ))}
             {position && <Marker position={[position.lat, position.lng]} icon={puckIcon} />}
             <FollowCamera position={position} zoom={17} />
           </MapContainer>
@@ -414,6 +532,25 @@ export default function NavigationView({ route, destination, lang = "en", onExit
             >
               {nt.recalculating}
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {needsPermission && !permissionDenied && (
+            <motion.button
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              onClick={requestPermission}
+              className="mt-1.5 w-full rounded-xl px-3.5 py-2 text-[12.5px] text-center font-medium flex items-center justify-center gap-2"
+              style={{ background: "#1a73e8", color: "#fff" }}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8l2.5 4L12 16l-2.5-4L12 8z" />
+              </svg>
+              Enable compass for heading-up rotation
+            </motion.button>
           )}
         </AnimatePresence>
 

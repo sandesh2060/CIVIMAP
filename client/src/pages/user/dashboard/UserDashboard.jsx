@@ -6,11 +6,13 @@ import OverviewPage from "./OverviewPage";
 import ReportsPage from "./ReportsPage";
 import MapPage from "./MapPage";
 import EmergencyPage from "./EmergencyPage";
+import FeedPage from "./FeedPage";  
 import SettingsPage from "./SettingsPage";
 import { useLang } from "../../../i18n/LanguageContext";
 
 const NAV_ITEMS = [
   { id: "overview", labelKey: "nav.overview", icon: "overview" },
+   { id: "feed", labelKey: "nav.feed", icon: "feed" },
   { id: "reports", labelKey: "nav.reports", icon: "reports" },
   { id: "map", labelKey: "nav.map", icon: "map" },
   { id: "emergency", labelKey: "nav.emergency", icon: "emergency" },
@@ -19,6 +21,7 @@ const NAV_ITEMS = [
 
 const PAGES = {
   overview: OverviewPage,
+  feed: FeedPage, 
   reports: ReportsPage,
   map: MapPage,
   emergency: EmergencyPage,
@@ -27,6 +30,7 @@ const PAGES = {
 
 const TITLE_KEYS = {
   overview: "nav.overview",
+   feed: "nav.feed",    
   reports: "nav.reports",
   map: "nav.map",
   emergency: "nav.emergency",

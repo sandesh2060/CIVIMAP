@@ -25,11 +25,23 @@ const NotificationSchema = new Schema(
         "violation_status",
         "admin_broadcast",
         "violation_matched",
+          "new_feed_post",
       ],
       required: true,
     },
     title: { type: String, required: true, trim: true },
     message: { type: String, required: true, trim: true },
+    relatedPost: { type: Schema.Types.ObjectId, ref: "Post", default: null },
+
+
+    
+
+    // Optional Nepali versions — only populated for admin_broadcast today.
+    // The client picks title/titleNe (and message/messageNe) at render
+    // time based on the viewer's languagePref; everything else keeps
+    // using the English fields since only English is authored for them.
+    titleNe: { type: String, trim: true, default: null },
+    messageNe: { type: String, trim: true, default: null },
 
     // Optional back-references so the client can deep-link ("View report")
     relatedReport: { type: Schema.Types.ObjectId, ref: "Report", default: null },

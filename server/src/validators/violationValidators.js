@@ -35,11 +35,7 @@ const createViolationSchema = Joi.object({
   // the citizen-confirmed plate text instead of re-running AI detection
   // via the async job. All four are optional so the original
   // direct-upload path (no preview step) still validates with none of
-  // them present. Without these, Joi's default unknown-key handling was
-  // silently dropping every one of these fields, which meant a citizen's
-  // manual correction never reached the server — the async job would
-  // re-run AI on the same photo and overwrite the correction with the
-  // same wrong read.
+  // them present.
   previewImageUrl: Joi.string().uri().optional(),
   previewImagePublicId: Joi.string().trim().optional(),
   confirmedPlateNumber: Joi.string().trim().max(30).optional(),
@@ -62,7 +58,8 @@ const listViolationsQuerySchema = Joi.object({
     .valid("detected", "notified", "flagged", "reviewed", "rejected")
     .optional(),
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  // was max(100) — ViolationsPage.jsx requests limit: 500, causing a 400.
+  limit: Joi.number().integer().min(1).max(1000).default(20),
 });
 
 module.exports = {

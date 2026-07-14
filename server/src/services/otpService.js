@@ -11,7 +11,11 @@ const { normalizeIdentifier } = require("../utils/identifier");
 
 const RESEND_COOLDOWN_MS = 45 * 1000;
 
-async function requestLoginOtp(rawIdentifier, ip) {
+// `lang` reflects the citizen's *current* UI toggle at the moment they
+// requested the code (see authController.getRequestLang) — it takes
+// priority over the account's saved languagePref, which may not exist
+// yet or may be stale/unset for brand-new registry-sourced accounts.
+async function requestLoginOtp(rawIdentifier, ip, lang = "en") {
   const { type: channel, value: identifier } = normalizeIdentifier(rawIdentifier);
   if (!channel) throw ApiError.badRequest("Enter a valid email or phone number");
 
@@ -36,8 +40,8 @@ async function requestLoginOtp(rawIdentifier, ip) {
   const code = user.createLoginOtp();
   await user.save({ validateBeforeSave: false });
 
- if (channel === "email") {
-    await emailService.sendOtpEmail(user, code);
+  if (channel === "email") {
+    await emailService.sendOtpEmail(user, code, lang);
   } else {
     const result = await whatsappService.sendOtpWhatsapp(user.phone, code);
     if (!result.success) {
@@ -58,7 +62,7 @@ async function verifyLoginOtp({ identifier: rawIdentifier, code, ip, userAgent, 
 
   const isValid = user.compareLoginOtp(code);
   if (!isValid) {
-    await user.registerFailedLogin(); // reuses the existing loginAttempts/lockUntil lockout
+    await user.registerFailedLogin();
     throw ApiError.unauthorized("Invalid or expired code");
   }
 

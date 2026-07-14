@@ -6,35 +6,34 @@ import socket, { connectSocket } from "../../services/socket";
 import { useLang } from "../../i18n/LanguageContext";
 import { EASE } from "../../config/tokens";
 import AlertCard from "../../components/emergency/AlertCard";
+import { useCachedFetch, invalidateCache } from "../../hooks/useCachedFetch";
 
 const CATEGORIES = ["ambulance", "fire", "police", "rescue"];
 const STATUSES = ["dispatched", "acknowledged", "resolved"];
 
 export default function EmergencyMonitorPage() {
   const { t } = useLang();
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [flashIds, setFlashIds] = useState(() => new Set());
 
-  async function load() {
-    setLoading(true);
-    try {
-      const params = {};
-      if (statusFilter !== "all") params.status = statusFilter;
-      if (categoryFilter !== "all") params.category = categoryFilter;
-      const res = await api.get("/emergency/alerts", { params });
-      setAlerts(res.data.data.alerts || []);
-    } finally {
-      setLoading(false);
-    }
+  const cacheKey = `admin:emergency:${statusFilter}:${categoryFilter}`;
+
+  async function fetchAlerts() {
+    // IMPORTANT: explicit limit. Without this, the request falls back to
+    // the server's Joi default of limit: 20 — on a live dispatch queue
+    // this silently hides every alert past the 20th.
+    const params = { limit: 200 };
+    if (statusFilter !== "all") params.status = statusFilter;
+    if (categoryFilter !== "all") params.category = categoryFilter;
+    const res = await api.get("/emergency/alerts", { params });
+    return res.data.data.alerts || [];
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, categoryFilter]);
+  const { data: alertsData, loading, setData } = useCachedFetch(cacheKey, fetchAlerts, {
+    deps: [statusFilter, categoryFilter],
+  });
+  const alerts = alertsData || [];
 
   useEffect(() => {
     const s = connectSocket();
@@ -45,13 +44,19 @@ export default function EmergencyMonitorPage() {
       setTimeout(() => setFlashIds((prev) => { const n = new Set(prev); n.delete(id); return n; }), 2500);
     };
 
+    // Live events only affect the currently-viewed filter's cache entry
+    // directly; other filter combinations will just pick up the change
+    // next time they're revalidated (visited), which is fine — they're
+    // not on screen right now.
     const onNew = ({ alert }) => {
-      setAlerts((prev) => [alert, ...prev]);
+      setData((prev) => [alert, ...(prev || [])]);
       flash(alert._id);
+      invalidateCache("admin:overview");
     };
     const onStatusChanged = ({ alertId, status }) => {
-      setAlerts((prev) => prev.map((a) => (a._id === alertId ? { ...a, status } : a)));
+      setData((prev) => (prev || []).map((a) => (a._id === alertId ? { ...a, status } : a)));
       flash(alertId);
+      invalidateCache("admin:overview");
     };
 
     socket.on("emergency:new", onNew);
@@ -60,11 +65,13 @@ export default function EmergencyMonitorPage() {
       socket.off("emergency:new", onNew);
       socket.off("emergency:statusChanged", onStatusChanged);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey]);
 
   async function handleResolve(id) {
     await api.patch(`/emergency/alerts/${id}/resolve`);
-    setAlerts((prev) => prev.map((a) => (a._id === id ? { ...a, status: "resolved" } : a)));
+    setData((prev) => (prev || []).map((a) => (a._id === id ? { ...a, status: "resolved" } : a)));
+    invalidateCache("admin:overview");
   }
 
   const openCount = useMemo(
@@ -104,7 +111,7 @@ export default function EmergencyMonitorPage() {
         </select>
       </div>
 
-      {loading ? (
+      {loading && alerts.length === 0 ? (
         <div className="py-16 text-center text-muted text-sm">{t("common.loading")}…</div>
       ) : alerts.length === 0 ? (
         <div className="py-16 text-center text-muted text-sm">{t("emergency.noActiveAlerts")}</div>

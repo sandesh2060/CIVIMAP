@@ -1,10 +1,10 @@
-// file: client/src/i18n/translations.js
 export const translations = {
   en: {
     appName: "CiviMap",
     tagline: "Nepal National Problem Map",
 
     "nav.overview": "Overview",
+    "nav.feed": "Feed",   
     "nav.reports": "Reports",
     "nav.map": "Map",
     "nav.analytics": "Analytics",
@@ -113,6 +113,17 @@ export const translations = {
 "places.category.tourist": "Tourist Spot",
 "places.category.sensitive": "Sensitive Site",
 "places.category.custom": "Custom",
+
+// Additional place categories — these already exist in the seeded
+// database (server/src/seed/places.seed.js) but had no UI labels yet,
+// so they were invisible in the category chips and admin dropdown.
+"places.category.historical": "Historical Site",
+"places.category.library": "Library",
+"places.category.government_office": "Government Office",
+"places.category.transit_stop": "Bus Stop",
+"places.category.bank_atm": "Bank / ATM",
+"places.category.petrol_pump": "Petrol Pump",
+"places.category.police_station": "Police Station",
 
 "emergency.subtitle": "One tap reaches the right department with your exact location.",
 "emergency.category.ambulance": "Ambulance",
@@ -442,16 +453,12 @@ export const translations = {
     "login.forgotPassword": "Forgot password?",
     "login.submit": "Sign in",
     "login.submitting": "Signing in…",
-    "login.noAccount": "Don't have an account?",
-    "login.createAccount": "Create one",
     "login.errorRequired": "Please enter both email and password",
     "login.errorGeneric": "Something went wrong. Please try again",
 
     "welcome.heading": "Report. Track. Resolve.",
     "welcome.subtitle": "A national platform for citizens to report civic problems and for local government to act on them.",
     "welcome.login": "Log in",
-    "welcome.register": "Create an account",
-    "welcome.registerHint": "New here?",
     "welcome.adminLogin": "Continue as admin",
   },
 
@@ -460,6 +467,7 @@ export const translations = {
     tagline: "नेपाल राष्ट्रिय समस्या नक्सा",
 
     "nav.overview": "सिंहावलोकन",
+    "nav.feed": "फिड",  
     "nav.reports": "रिपोर्टहरू",
     "nav.map": "नक्सा",
     "nav.analytics": "विश्लेषण",
@@ -595,7 +603,6 @@ export const translations = {
 "emergency.noActiveAlerts": "अहिले कुनै आपतकालीन अलर्ट छैन।",
 
 
-
 "violations.heading": "ट्राफिक उल्लङ्घनहरू",
 "violations.subtitle": "AI ले पत्ता लगाएका प्लेट मिलानहरू समीक्षा गर्नुहोस्",
 "violations.searchPlaceholder": "प्लेट वा मालिकको नामले खोज्नुहोस्",
@@ -607,19 +614,6 @@ export const translations = {
 "violations.noPlate": "कुनै प्लेट पत्ता लागेन",
 "violations.noOwnerMatch": "दर्तामा कुनै मिल्दो सवारी मालिक फेला परेन।",
 "violations.confirm": "पुष्टि गर्नुहोस्",
-
-
-"ov.emergencyAlertsSent": "आपतकालीन अलर्टहरू",
-"ov.alertType": "आपतकालीन अलर्ट",
-"ov.openAlertsBanner": "तपाईंसँग {n} खुला आपतकालीन अलर्ट छ",
-"ov.openAlertsBannerHint": "स्थिति हेर्न र पछ्याउन ट्याप गर्नुहोस्",
-"ov.sendEmergencyCta": "आपतकालीन अलर्ट पठाउनुहोस्",
-"ov.sendEmergencyHint": "एम्बुलेन्स, दमकल, प्रहरी, वा उद्धार",
-
-"common.error": "केही गडबड भयो",
-"common.success": "सफल भयो",
-"common.notice": "सूचना",
-"violations.selfReportError": "यो सवारी तपाईंकै खातामा दर्ता भएको छ, त्यसैले यसलाई रिपोर्ट गर्न मिल्दैन — आफ्नै सवारी विरुद्धको रिपोर्ट स्वतः अस्वीकार गरिन्छ।",
 
 "places.heading": "स्थान पिनहरू",
 "places.subtitle": "अस्पताल, विद्यालय, पर्यटकीय स्थल र संवेदनशील स्थलहरू व्यवस्थापन गर्नुहोस्",
@@ -643,6 +637,16 @@ export const translations = {
 "places.category.tourist": "पर्यटकीय स्थल",
 "places.category.sensitive": "संवेदनशील स्थल",
 "places.category.custom": "अनुकूल",
+
+// Additional place categories — see matching note in the en block above.
+"places.category.historical": "ऐतिहासिक स्थल",
+"places.category.library": "पुस्तकालय",
+"places.category.government_office": "सरकारी कार्यालय",
+"places.category.transit_stop": "बस स्टप",
+"places.category.bank_atm": "बैंक / एटिएम",
+"places.category.petrol_pump": "पेट्रोल पम्प",
+"places.category.police_station": "प्रहरी चौकी",
+
 // ADD to translations.js -> ne
 "reports.tabReports": "सडक समस्याहरू",
 "reports.tabViolations": "उल्लंघनहरू",
@@ -898,16 +902,12 @@ export const translations = {
     "login.forgotPassword": "पासवर्ड बिर्सनुभयो?",
     "login.submit": "साइन इन",
     "login.submitting": "साइन इन हुँदै…",
-    "login.noAccount": "खाता छैन?",
-    "login.createAccount": "खाता बनाउनुहोस्",
     "login.errorRequired": "कृपया इमेल र पासवर्ड दुवै लेख्नुहोस्",
     "login.errorGeneric": "केही गल्ती भयो। फेरि प्रयास गर्नुहोस्",
 
     "welcome.heading": "रिपोर्ट गर्नुहोस्। पछ्याउनुहोस्। समाधान गर्नुहोस्।",
     "welcome.subtitle": "नागरिकहरूले नागरिक समस्या रिपोर्ट गर्न र स्थानीय सरकारले त्यसमा कारबाही गर्न बनाइएको राष्ट्रिय प्लेटफर्म।",
     "welcome.login": "साइन इन",
-    "welcome.register": "खाता बनाउनुहोस्",
-    "welcome.registerHint": "नयाँ हुनुहुन्छ?",
     "welcome.adminLogin": "एडमिनको रूपमा जारी राख्नुहोस्",
   },
 };

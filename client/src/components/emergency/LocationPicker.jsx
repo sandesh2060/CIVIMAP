@@ -5,11 +5,17 @@ import MapView from "../map/MapView";
 import { useLang } from "../../i18n/LanguageContext";
 import { EASE } from "../../config/tokens";
 
+function isValidCoords(v) {
+  return !!v && Number.isFinite(v.lat) && Number.isFinite(v.lng);
+}
+
 export default function LocationPicker({ value, onChange }) {
   const { t } = useLang();
   const [locating, setLocating] = useState(false);
   const [mode, setMode] = useState("gps"); // "gps" | "manual"
   const [error, setError] = useState(null);
+
+  const hasCoords = isValidCoords(value);
 
   function useCurrentLocation() {
     setError(null);
@@ -21,7 +27,14 @@ export default function LocationPicker({ value, onChange }) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onChange({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          setError(t("emergency.locationDenied"));
+          setLocating(false);
+          return;
+        }
+        onChange({ lat, lng });
         setLocating(false);
       },
       () => {
@@ -33,6 +46,7 @@ export default function LocationPicker({ value, onChange }) {
   }
 
   function handleManualClick(coords) {
+    if (!isValidCoords(coords)) return;
     setMode("manual");
     onChange(coords);
   }
@@ -86,15 +100,19 @@ export default function LocationPicker({ value, onChange }) {
       )}
 
       <div className="h-56 rounded-xl overflow-hidden border border-border relative">
-        <MapView center={value ? [value.lat, value.lng] : undefined} flyTo={value ? [value.lat, value.lng] : undefined} onMapClick={handleManualClick} />
-        {!value && (
+        <MapView
+          center={hasCoords ? [value.lat, value.lng] : undefined}
+          flyTo={hasCoords ? [value.lat, value.lng] : undefined}
+          onMapClick={handleManualClick}
+        />
+        {!hasCoords && (
           <div className="absolute inset-0 grid place-items-center bg-surface/70 pointer-events-none text-xs text-muted">
             {t("emergency.tapMapToPin")}
           </div>
         )}
       </div>
 
-      {value && (
+      {hasCoords && (
         <p className="text-xs text-faint">
           {t("emergency.selectedLocation")}: {value.lat.toFixed(5)}, {value.lng.toFixed(5)}
         </p>

@@ -10,6 +10,7 @@ const ApiResponse = require("../utils/ApiResponse");
 const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 
+const REPORTER_FIELDS = "fullName phone email";
 
 async function createReport(req, res, next) {
   try {
@@ -58,7 +59,15 @@ async function listReports(req, res, next) {
 
     const skip = (page - 1) * limit;
     const [reports, total] = await Promise.all([
-      query.clone().sort({ createdAt: -1 }).skip(skip).limit(limit),
+      query
+        .clone()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        // Admin table/detail panel needs to show who filed each report —
+        // was previously missing entirely (reportedBy came back as a
+        // raw ObjectId string with nothing for the client to render).
+        .populate("reportedBy", REPORTER_FIELDS),
       Report.countDocuments(filters),
     ]);
 
@@ -70,7 +79,10 @@ async function listReports(req, res, next) {
 
 async function getReport(req, res, next) {
   try {
-    const report = await Report.findOne({ _id: req.params.id, isDeleted: false });
+    const report = await Report.findOne({ _id: req.params.id, isDeleted: false }).populate(
+      "reportedBy",
+      REPORTER_FIELDS
+    );
     if (!report) throw ApiError.notFound("Report not found");
     return ApiResponse.ok(res, { report });
   } catch (err) {
@@ -109,14 +121,19 @@ async function reviewReport(req, res, next) {
     }
 
     const notifications = require("../notifications");
-     const notificationService = require("../services/notificationService");
+    const notificationService = require("../services/notificationService");
     const user = await User.findById(report.reportedBy);
     if (user) {
       await notifications.dispatchReportStatusNotification(report, user);
-        await notificationService.notifyReportStatus(report, user, decision); 
+      await notificationService.notifyReportStatus(report, user, decision);
     }
 
-    return ApiResponse.ok(res, { report });
+    // Re-fetch populated so the client's optimistic update (replacing the
+    // row/selected report with this response) still has reporter details
+    // attached, instead of momentarily losing them after a review action.
+    const populated = await Report.findById(report._id).populate("reportedBy", REPORTER_FIELDS);
+
+    return ApiResponse.ok(res, { report: populated });
   } catch (err) {
     next(err);
   }

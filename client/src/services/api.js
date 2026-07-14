@@ -32,6 +32,17 @@ api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
+  // Tells the server which language to render server-generated content in
+  // (currently: OTP emails). Read directly from localStorage rather than
+  // React context, since this file has no component tree to hook into and
+  // LanguageContext already persists here under the same key ("lang").
+  // Works pre-login too, which is the whole point — the OTP email needs
+  // the *current* toggle state, not the DB-saved languagePref that only
+  // exists (and only gets set) after a citizen has visited Settings.
+  const lang = localStorage.getItem("lang");
+  if (lang === "en" || lang === "ne") {
+    config.headers["X-Lang"] = lang;
+  }
   return config;
 });
 

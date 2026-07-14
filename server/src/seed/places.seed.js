@@ -1,9 +1,17 @@
 // file: server/src/seed/places.seed.js
-// Seeds ~230 real Kathmandu Valley locations across 12 categories.
+// Seeds real Nepal locations (Kathmandu Valley + major cities/regions)
+// across 12 categories.
 // Run: node src/seed/places.seed.js
 //
-// Coordinates are best-effort approximations of real KTM Valley locations —
+// Coordinates are best-effort approximations of real locations —
 // accurate enough for map display/demo purposes, not survey-grade.
+//
+// IMPORTANT: `location` is authored below as a friendly { lat, lng }
+// object. The Place schema requires GeoJSON: { type: "Point",
+// coordinates: [lng, lat] }. This script converts every entry to that
+// shape at insert time (see toGeoJSON below) — do NOT insert `p.location`
+// directly, or you'll reproduce the old bug where seeded places had no
+// coordinates at all.
 
 const mongoose = require("mongoose");
 require("dotenv").config();
@@ -11,7 +19,7 @@ const Place = require("../models/Place");
 const Admin = require("../models/admin/Admin");
 
 const PLACES = [
-  // ---------------- SCHOOL ----------------
+  // ================= SCHOOL =================
   { name: "Rato Bangala School", category: "school", location: { lat: 27.6742, lng: 85.3188 }, description: "Private school, Patan" },
   { name: "St. Xavier's School", category: "school", location: { lat: 27.6701, lng: 85.3125 }, description: "Jawalakhel" },
   { name: "Budhanilkantha School", category: "school", location: { lat: 27.7910, lng: 85.3620 }, description: "Budhanilkantha" },
@@ -32,9 +40,16 @@ const PLACES = [
   { name: "Gyanodaya Bal Batika", category: "school", location: { lat: 27.6720, lng: 85.4280 }, description: "Bhaktapur" },
   { name: "Sacred Heart School", category: "school", location: { lat: 27.6715, lng: 85.3140 }, description: "Jawalakhel" },
   { name: "Kathmandu University High School", category: "school", location: { lat: 27.6205, lng: 85.5388 }, description: "Dhulikhel" },
-   { name: "Orchid Internation College", category: "school", location: { lat: 27.7024, lng: 85.3465 }, description: "Gaushala Bijayachowk Battisputali" },
+  { name: "Orchid International College", category: "school", location: { lat: 27.7024, lng: 85.3465 }, description: "Gaushala Bijayachowk Battisputali" },
+  { name: "Gandaki Boarding School", category: "school", location: { lat: 28.2100, lng: 83.9950 }, description: "Pokhara" },
+  { name: "Siddhartha Vanasthali Institute Pokhara", category: "school", location: { lat: 28.2200, lng: 83.9880 }, description: "Pokhara" },
+  { name: "Global Academy of Tourism & Hospitality Education", category: "school", location: { lat: 28.2075, lng: 83.9770 }, description: "Pokhara" },
+  { name: "Chitwan Model Higher Secondary School", category: "school", location: { lat: 27.6800, lng: 84.4350 }, description: "Bharatpur" },
+  { name: "Biratnagar Model Secondary School", category: "school", location: { lat: 26.4530, lng: 87.2718 }, description: "Biratnagar" },
+  { name: "Janaki Secondary School", category: "school", location: { lat: 26.7290, lng: 85.9260 }, description: "Janakpur" },
+  { name: "Butwal Multiple Campus School", category: "school", location: { lat: 27.7010, lng: 83.4490 }, description: "Butwal" },
 
-  // ---------------- HISTORICAL ----------------
+  // ================= HISTORICAL =================
   { name: "Kathmandu Durbar Square", category: "historical", location: { lat: 27.7040, lng: 85.3070 }, description: "UNESCO World Heritage Site" },
   { name: "Patan Durbar Square", category: "historical", location: { lat: 27.6727, lng: 85.3250 }, description: "UNESCO World Heritage Site" },
   { name: "Bhaktapur Durbar Square", category: "historical", location: { lat: 27.6722, lng: 85.4280 }, description: "UNESCO World Heritage Site" },
@@ -55,8 +70,14 @@ const PLACES = [
   { name: "Ichangu Narayan Temple", category: "historical", location: { lat: 27.7350, lng: 85.2680 }, description: "Ichangu" },
   { name: "Dakshinkali Temple", category: "historical", location: { lat: 27.5985, lng: 85.2790 }, description: "Sacrificial temple" },
   { name: "Budhanilkantha (Sleeping Vishnu)", category: "historical", location: { lat: 27.7660, lng: 85.3620 }, description: "Stone Vishnu statue" },
+  { name: "Lumbini - Maya Devi Temple", category: "historical", location: { lat: 27.4833, lng: 83.2767 }, description: "Birthplace of Buddha, UNESCO site" },
+  { name: "Ashoka Pillar Lumbini", category: "historical", location: { lat: 27.4837, lng: 83.2770 }, description: "Lumbini" },
+  { name: "Gorkha Durbar", category: "historical", location: { lat: 28.0000, lng: 84.6280 }, description: "Ancestral palace of Shah dynasty" },
+  { name: "Bindhyabasini Temple", category: "historical", location: { lat: 28.2280, lng: 83.9860 }, description: "Pokhara" },
+  { name: "Janaki Mandir", category: "historical", location: { lat: 26.7288, lng: 85.9246 }, description: "Janakpur, Sita's birthplace temple" },
+  { name: "Bandipur Bazaar", category: "historical", location: { lat: 27.9333, lng: 84.4167 }, description: "Preserved Newar hill town" },
 
-  // ---------------- LIBRARY ----------------
+  // ================= LIBRARY =================
   { name: "Tribhuvan University Central Library", category: "library", location: { lat: 27.6784, lng: 85.2870 }, description: "Kirtipur" },
   { name: "Nepal National Library", category: "library", location: { lat: 27.6660, lng: 85.3210 }, description: "Harihar Bhawan, Lalitpur" },
   { name: "Kaiser Library", category: "library", location: { lat: 27.7145, lng: 85.3155 }, description: "Kaiser Mahal, Kathmandu" },
@@ -72,8 +93,10 @@ const PLACES = [
   { name: "Godavari Community Library", category: "library", location: { lat: 27.5970, lng: 85.3900 }, description: "Godavari" },
   { name: "Balkumari Library", category: "library", location: { lat: 27.6660, lng: 85.3390 }, description: "Lalitpur" },
   { name: "Kirtipur Municipal Library", category: "library", location: { lat: 27.6770, lng: 85.2850 }, description: "Kirtipur" },
+  { name: "Pokhara Public Library", category: "library", location: { lat: 28.2140, lng: 83.9850 }, description: "Pokhara" },
+  { name: "Biratnagar Public Library", category: "library", location: { lat: 26.4540, lng: 87.2740 }, description: "Biratnagar" },
 
-  // ---------------- GOVERNMENT_OFFICE ----------------
+  // ================= GOVERNMENT_OFFICE =================
   { name: "Kathmandu Metropolitan City Office", category: "government_office", location: { lat: 27.7060, lng: 85.3125 }, description: "Bagdurbar" },
   { name: "Lalitpur Metropolitan City Office", category: "government_office", location: { lat: 27.6760, lng: 85.3195 }, description: "Pulchowk" },
   { name: "Bhaktapur Municipality Office", category: "government_office", location: { lat: 27.6715, lng: 85.4290 }, description: "Bhaktapur" },
@@ -92,8 +115,16 @@ const PLACES = [
   { name: "Kirtipur Municipality Office", category: "government_office", location: { lat: 27.6775, lng: 85.2845 }, description: "Kirtipur" },
   { name: "Madhyapur Thimi Municipality Office", category: "government_office", location: { lat: 27.6775, lng: 85.3960 }, description: "Thimi" },
   { name: "Tokha Municipality Office", category: "government_office", location: { lat: 27.7480, lng: 85.3320 }, description: "Tokha" },
+  { name: "Pokhara Metropolitan City Office", category: "government_office", location: { lat: 28.2096, lng: 83.9856 }, description: "Pokhara" },
+  { name: "Bharatpur Metropolitan City Office", category: "government_office", location: { lat: 27.6780, lng: 84.4380 }, description: "Chitwan" },
+  { name: "Biratnagar Metropolitan City Office", category: "government_office", location: { lat: 26.4525, lng: 87.2718 }, description: "Biratnagar" },
+  { name: "Dharan Sub-Metropolitan City Office", category: "government_office", location: { lat: 26.8125, lng: 87.2833 }, description: "Dharan" },
+  { name: "Butwal Sub-Metropolitan City Office", category: "government_office", location: { lat: 27.7000, lng: 83.4486 }, description: "Butwal" },
+  { name: "Birgunj Metropolitan City Office", category: "government_office", location: { lat: 27.0104, lng: 84.8821 }, description: "Birgunj" },
+  { name: "Nepalgunj Sub-Metropolitan City Office", category: "government_office", location: { lat: 28.0500, lng: 81.6167 }, description: "Nepalgunj" },
+  { name: "Dhangadhi Sub-Metropolitan City Office", category: "government_office", location: { lat: 28.6833, lng: 80.6000 }, description: "Dhangadhi" },
 
-  // ---------------- TRANSIT_STOP ----------------
+  // ================= TRANSIT_STOP =================
   { name: "Ratna Park Bus Park", category: "transit_stop", location: { lat: 27.7050, lng: 85.3140 }, description: "Kathmandu" },
   { name: "City Bus Park Sorhakhutte", category: "transit_stop", location: { lat: 27.7145, lng: 85.3080 }, description: "Sorhakhutte" },
   { name: "Old Bus Park", category: "transit_stop", location: { lat: 27.7135, lng: 85.3100 }, description: "Kathmandu" },
@@ -112,8 +143,15 @@ const PLACES = [
   { name: "Satdobato Bus Stop", category: "transit_stop", location: { lat: 27.6595, lng: 85.3255 }, description: "Lalitpur" },
   { name: "Ekantakuna Bus Stop", category: "transit_stop", location: { lat: 27.6630, lng: 85.3190 }, description: "Lalitpur" },
   { name: "Maitighar Mandala Bus Stop", category: "transit_stop", location: { lat: 27.6935, lng: 85.3235 }, description: "Maitighar" },
+  { name: "Tribhuvan International Airport", category: "transit_stop", location: { lat: 27.6966, lng: 85.3591 }, description: "Domestic & int'l terminal, Kathmandu" },
+  { name: "Pokhara Bus Park", category: "transit_stop", location: { lat: 28.2100, lng: 83.9930 }, description: "Pokhara" },
+  { name: "Pokhara International Airport", category: "transit_stop", location: { lat: 28.1980, lng: 84.0010 }, description: "Pokhara" },
+  { name: "Bharatpur Airport", category: "transit_stop", location: { lat: 27.6780, lng: 84.4290 }, description: "Chitwan" },
+  { name: "Biratnagar Airport", category: "transit_stop", location: { lat: 26.4815, lng: 87.2640 }, description: "Biratnagar" },
+  { name: "Nepalgunj Airport", category: "transit_stop", location: { lat: 28.1030, lng: 81.6670 }, description: "Nepalgunj" },
+  { name: "Butwal Bus Park", category: "transit_stop", location: { lat: 27.7020, lng: 83.4470 }, description: "Butwal" },
 
-  // ---------------- BANK_ATM ----------------
+  // ================= BANK_ATM =================
   { name: "Nepal Rastra Bank", category: "bank_atm", location: { lat: 27.7175, lng: 85.3310 }, description: "Baluwatar" },
   { name: "Nabil Bank Durbar Marg", category: "bank_atm", location: { lat: 27.7115, lng: 85.3175 }, description: "Durbar Marg" },
   { name: "NIC Asia Bank New Baneshwor", category: "bank_atm", location: { lat: 27.6900, lng: 85.3400 }, description: "New Baneshwor" },
@@ -132,8 +170,11 @@ const PLACES = [
   { name: "ATM Jawalakhel", category: "bank_atm", location: { lat: 27.6715, lng: 85.3130 }, description: "Jawalakhel" },
   { name: "ATM Bhaktapur Durbar Square", category: "bank_atm", location: { lat: 27.6720, lng: 85.4285 }, description: "Bhaktapur" },
   { name: "ATM Koteshwor", category: "bank_atm", location: { lat: 27.6775, lng: 85.3500 }, description: "Koteshwor" },
+  { name: "Nabil Bank Lakeside Pokhara", category: "bank_atm", location: { lat: 28.2100, lng: 83.9580 }, description: "Pokhara" },
+  { name: "Global IME Bank Biratnagar", category: "bank_atm", location: { lat: 26.4540, lng: 87.2700 }, description: "Biratnagar" },
+  { name: "NIC Asia Bank Butwal", category: "bank_atm", location: { lat: 27.7005, lng: 83.4470 }, description: "Butwal" },
 
-  // ---------------- PHARMACY ----------------
+  // ================= PHARMACY =================
   { name: "Alka Hospital Pharmacy", category: "pharmacy", location: { lat: 27.6705, lng: 85.3135 }, description: "Jawalakhel" },
   { name: "Bhatbhateni Pharmacy Tinkune", category: "pharmacy", location: { lat: 27.6890, lng: 85.3465 }, description: "Tinkune" },
   { name: "Om Pharmacy Baneshwor", category: "pharmacy", location: { lat: 27.6905, lng: 85.3390 }, description: "Baneshwor" },
@@ -151,8 +192,11 @@ const PLACES = [
   { name: "B&B Pharmacy Gwarko", category: "pharmacy", location: { lat: 27.6690, lng: 85.3350 }, description: "Gwarko" },
   { name: "Sunrise Pharmacy Baluwatar", category: "pharmacy", location: { lat: 27.7195, lng: 85.3300 }, description: "Baluwatar" },
   { name: "Care Pharmacy Sanepa", category: "pharmacy", location: { lat: 27.6805, lng: 85.3075 }, description: "Sanepa" },
+  { name: "Pokhara Health Pharmacy", category: "pharmacy", location: { lat: 28.2125, lng: 83.9870 }, description: "Pokhara" },
+  { name: "Chitwan Medical Pharmacy", category: "pharmacy", location: { lat: 27.6280, lng: 84.4780 }, description: "Bharatpur" },
+  { name: "Biratnagar Central Pharmacy", category: "pharmacy", location: { lat: 26.4560, lng: 87.2750 }, description: "Biratnagar" },
 
-  // ---------------- PETROL_PUMP ----------------
+  // ================= PETROL_PUMP =================
   { name: "Sajha Petrol Pump Sundhara", category: "petrol_pump", location: { lat: 27.6995, lng: 85.3115 }, description: "Sundhara" },
   { name: "Annapurna Petroleum Balkhu", category: "petrol_pump", location: { lat: 27.6885, lng: 85.2955 }, description: "Balkhu" },
   { name: "Bagmati Petroleum Koteshwor", category: "petrol_pump", location: { lat: 27.6790, lng: 85.3480 }, description: "Koteshwor" },
@@ -169,8 +213,11 @@ const PLACES = [
   { name: "Naikap Petrol Pump", category: "petrol_pump", location: { lat: 27.6970, lng: 85.2640 }, description: "Naikap" },
   { name: "Balaju Petrol Pump", category: "petrol_pump", location: { lat: 27.7280, lng: 85.3010 }, description: "Balaju" },
   { name: "Tokha Petrol Pump", category: "petrol_pump", location: { lat: 27.7470, lng: 85.3310 }, description: "Tokha" },
+  { name: "Pokhara Petrol Pump Prithvi Chowk", category: "petrol_pump", location: { lat: 28.2135, lng: 83.9880 }, description: "Pokhara" },
+  { name: "Bharatpur Petrol Pump", category: "petrol_pump", location: { lat: 27.6760, lng: 84.4330 }, description: "Chitwan" },
+  { name: "Biratnagar Petrol Pump", category: "petrol_pump", location: { lat: 26.4570, lng: 87.2690 }, description: "Biratnagar" },
 
-  // ---------------- POLICE_STATION ----------------
+  // ================= POLICE_STATION =================
   { name: "Hanuman Dhoka Police Circle", category: "police_station", location: { lat: 27.7045, lng: 85.3080 }, description: "Kathmandu" },
   { name: "Metropolitan Police Circle Ranipokhari", category: "police_station", location: { lat: 27.7065, lng: 85.3145 }, description: "Ranipokhari" },
   { name: "Traffic Police Office Ratna Park", category: "police_station", location: { lat: 27.7055, lng: 85.3135 }, description: "Ratna Park" },
@@ -187,8 +234,12 @@ const PLACES = [
   { name: "Thimi Police Station", category: "police_station", location: { lat: 27.6780, lng: 85.3955 }, description: "Bhaktapur" },
   { name: "Maharajgunj Police Station", category: "police_station", location: { lat: 27.7370, lng: 85.3330 }, description: "Maharajgunj" },
   { name: "Naxal Police Station", category: "police_station", location: { lat: 27.7135, lng: 85.3260 }, description: "Naxal" },
+  { name: "Pokhara District Police Office", category: "police_station", location: { lat: 28.2105, lng: 83.9750 }, description: "Pokhara" },
+  { name: "Chitwan District Police Office", category: "police_station", location: { lat: 27.6800, lng: 84.4300 }, description: "Bharatpur" },
+  { name: "Morang District Police Office", category: "police_station", location: { lat: 26.4550, lng: 87.2730 }, description: "Biratnagar" },
+  { name: "Rupandehi District Police Office", category: "police_station", location: { lat: 27.6990, lng: 83.4460 }, description: "Butwal" },
 
-  // ---------------- HOSPITAL ----------------
+  // ================= HOSPITAL =================
   { name: "Tribhuvan University Teaching Hospital", category: "hospital", location: { lat: 27.7365, lng: 85.3315 }, description: "Maharajgunj" },
   { name: "Bir Hospital", category: "hospital", location: { lat: 27.7038, lng: 85.3122 }, description: "Mahaboudha" },
   { name: "Patan Hospital", category: "hospital", location: { lat: 27.6660, lng: 85.3240 }, description: "Lagankhel" },
@@ -206,8 +257,15 @@ const PLACES = [
   { name: "HAMS Hospital", category: "hospital", location: { lat: 27.7300, lng: 85.3380 }, description: "Dhumbarahi" },
   { name: "Nepal Police Hospital", category: "hospital", location: { lat: 27.7385, lng: 85.3320 }, description: "Maharajgunj" },
   { name: "Paropakar Maternity Hospital", category: "hospital", location: { lat: 27.6935, lng: 85.3155 }, description: "Thapathali" },
+  { name: "Western Regional Hospital Pokhara", category: "hospital", location: { lat: 28.2270, lng: 83.9900 }, description: "Pokhara" },
+  { name: "Manipal Teaching Hospital", category: "hospital", location: { lat: 28.2230, lng: 83.9990 }, description: "Pokhara" },
+  { name: "Chitwan Medical College Teaching Hospital", category: "hospital", location: { lat: 27.6280, lng: 84.4780 }, description: "Bharatpur" },
+  { name: "Koshi Zonal Hospital", category: "hospital", location: { lat: 26.4570, lng: 87.2790 }, description: "Biratnagar" },
+  { name: "Nobel Medical College Teaching Hospital", category: "hospital", location: { lat: 26.6560, lng: 87.2760 }, description: "Biratnagar" },
+  { name: "Lumbini Provincial Hospital", category: "hospital", location: { lat: 27.7005, lng: 83.4520 }, description: "Butwal" },
+  { name: "Bheri Zonal Hospital", category: "hospital", location: { lat: 28.0510, lng: 81.6180 }, description: "Nepalgunj" },
 
-  // ---------------- TOURIST ----------------
+  // ================= TOURIST =================
   { name: "Nagarkot Viewpoint", category: "tourist", location: { lat: 27.7150, lng: 85.5210 }, description: "Sunrise viewpoint" },
   { name: "Chandragiri Hills Cable Car", category: "tourist", location: { lat: 27.6595, lng: 85.2385 }, description: "Cable car & viewpoint" },
   { name: "Shivapuri National Park", category: "tourist", location: { lat: 27.8100, lng: 85.3900 }, description: "National park entrance" },
@@ -223,14 +281,24 @@ const PLACES = [
   { name: "Dhulikhel Viewpoint", category: "tourist", location: { lat: 27.6210, lng: 85.5400 }, description: "Himalayan viewpoint" },
   { name: "Thankot Viewpoint", category: "tourist", location: { lat: 27.6935, lng: 85.2225 }, description: "Valley rim" },
   { name: "Jharuwarasi", category: "tourist", location: { lat: 27.6320, lng: 85.3230 }, description: "Riverside picnic spot" },
+  { name: "Phewa Lake", category: "tourist", location: { lat: 28.2096, lng: 83.9560 }, description: "Pokhara's iconic lake" },
+  { name: "Sarangkot", category: "tourist", location: { lat: 28.2380, lng: 83.9520 }, description: "Sunrise & Annapurna viewpoint" },
+  { name: "World Peace Pagoda Pokhara", category: "tourist", location: { lat: 28.1930, lng: 83.9490 }, description: "Pokhara" },
+  { name: "Davis Falls", category: "tourist", location: { lat: 28.1970, lng: 83.9540 }, description: "Pokhara waterfall" },
+  { name: "Gupteshwor Cave", category: "tourist", location: { lat: 28.1965, lng: 83.9550 }, description: "Pokhara" },
+  { name: "Chitwan National Park (Sauraha)", category: "tourist", location: { lat: 27.5769, lng: 84.5011 }, description: "UNESCO wildlife reserve" },
+  { name: "Lumbini Garden", category: "tourist", location: { lat: 27.4833, lng: 83.2767 }, description: "Birthplace of Buddha" },
+  { name: "Bandipur Viewpoint", category: "tourist", location: { lat: 27.9350, lng: 84.4180 }, description: "Hill town, Himalayan views" },
+  { name: "Ilam Tea Gardens", category: "tourist", location: { lat: 26.9088, lng: 87.9280 }, description: "Eastern hill tea estates" },
+  { name: "Rara Lake", category: "tourist", location: { lat: 29.5270, lng: 82.0850 }, description: "Nepal's largest lake" },
 
-  // ---------------- SENSITIVE ----------------
+  // ================= SENSITIVE =================
   { name: "Singha Durbar", category: "sensitive", location: { lat: 27.6960, lng: 85.3265 }, description: "Central Secretariat" },
   { name: "Narayanhiti Palace Museum", category: "sensitive", location: { lat: 27.7175, lng: 85.3175 }, description: "Former royal palace" },
   { name: "Nepal Army Headquarters", category: "sensitive", location: { lat: 27.6975, lng: 85.3195 }, description: "Bhadrakali" },
   { name: "Nepal Police Headquarters", category: "sensitive", location: { lat: 27.7130, lng: 85.3255 }, description: "Naxal" },
   { name: "Armed Police Force Headquarters", category: "sensitive", location: { lat: 27.7300, lng: 85.2790 }, description: "Halchowk" },
-  { name: "Tribhuvan International Airport", category: "sensitive", location: { lat: 27.6966, lng: 85.3591 }, description: "TIA" },
+  { name: "Tribhuvan International Airport (Restricted Zone)", category: "sensitive", location: { lat: 27.6980, lng: 85.3610 }, description: "TIA restricted area" },
   { name: "Supreme Court", category: "sensitive", location: { lat: 27.7000, lng: 85.3195 }, description: "Ramshahpath" },
   { name: "Federal Parliament Building", category: "sensitive", location: { lat: 27.6920, lng: 85.3390 }, description: "New Baneshwor" },
   { name: "Central Jail Sundhara", category: "sensitive", location: { lat: 27.7000, lng: 85.3105 }, description: "Sundhara" },
@@ -240,7 +308,15 @@ const PLACES = [
   { name: "US Embassy", category: "sensitive", location: { lat: 27.7375, lng: 85.3305 }, description: "Maharajgunj" },
   { name: "Department of Immigration", category: "sensitive", location: { lat: 27.7085, lng: 85.3325 }, description: "Kalikasthan" },
   { name: "Military Headquarters Bhadrakali", category: "sensitive", location: { lat: 27.6980, lng: 85.3190 }, description: "Bhadrakali" },
+  { name: "Western Division Army HQ Pokhara", category: "sensitive", location: { lat: 28.2050, lng: 83.9700 }, description: "Pokhara" },
+  { name: "Provincial Police HQ Biratnagar", category: "sensitive", location: { lat: 26.4600, lng: 87.2810 }, description: "Biratnagar" },
 ];
+
+// Converts the friendly authoring shape { lat, lng } into the GeoJSON
+// shape the Place schema requires: { type: "Point", coordinates: [lng, lat] }.
+function toGeoJSON({ lat, lng }) {
+  return { type: "Point", coordinates: [lng, lat] };
+}
 
 async function seed() {
   await mongoose.connect(process.env.MONGO_URI);
@@ -258,20 +334,36 @@ async function seed() {
 
   let created = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const p of PLACES) {
-    // Upsert on name+category so re-running this script is safe and
-    // idempotent — won't duplicate entries if you run it twice.
-    const result = await Place.updateOne(
-      { name: p.name, category: p.category },
-      { $setOnInsert: { ...p, addedBy: admin._id } },
-      { upsert: true }
-    );
-    if (result.upsertedCount > 0) created++;
-    else skipped++;
+    const { location, ...rest } = p;
+
+    const doc = {
+      ...rest,
+      location: toGeoJSON(location),
+      addedBy: admin._id,
+    };
+
+    try {
+      // Upsert on name+category so re-running this script is safe and
+      // idempotent — won't duplicate entries if you run it twice.
+      // runValidators ensures a malformed doc fails loudly instead of
+      // silently saving with missing/invalid coordinates.
+      const result = await Place.updateOne(
+        { name: p.name, category: p.category },
+        { $setOnInsert: doc },
+        { upsert: true, runValidators: true }
+      );
+      if (result.upsertedCount > 0) created++;
+      else skipped++;
+    } catch (err) {
+      failed++;
+      console.error(`Failed to seed "${p.name}" (${p.category}):`, err.message);
+    }
   }
 
-  console.log(`Seed complete: ${created} places created, ${skipped} already existed.`);
+  console.log(`Seed complete: ${created} created, ${skipped} already existed, ${failed} failed. Total attempted: ${PLACES.length}.`);
   await mongoose.disconnect();
 }
 

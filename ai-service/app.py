@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes.road_damage_verification import router as road_damage_router
 from routes.plate_detection import router as plate_router
+from routes.tts import router as tts_router 
 # image_moderation gets wired here the same way once that model is built:
 # from routes.image_moderation import router as moderation_router
 
@@ -17,6 +18,7 @@ app.add_middleware(
 
 app.include_router(road_damage_router)
 app.include_router(plate_router)
+app.include_router(tts_router) 
 # app.include_router(moderation_router)
 
 

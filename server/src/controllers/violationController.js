@@ -14,11 +14,8 @@ const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 const { env } = require("../config/env");
 
-// NEW: runs AI detection synchronously on a photo BEFORE any Violation
-// record is created, so the client can show the citizen what the AI
-// read and let them confirm or correct it. Uploads to Cloudinary once —
-// createViolation() below reuses this same image/URL on final submit
-// rather than uploading a second time.
+const REPORTER_FIELDS = "fullName phone email";
+
 async function detectPreview(req, res, next) {
   try {
     if (!req.file) throw ApiError.badRequest("A photo is required");
@@ -35,10 +32,6 @@ async function detectPreview(req, res, next) {
         detectionFailed: false,
       });
     } catch (err) {
-      // Don't fail the whole preview just because AI detection errored —
-      // the citizen can still confirm/type the plate manually and submit.
-      // Same "never silently drop, fall back gracefully" principle as
-      // the background job.
       logger.aiServiceError("detectPlate preview failed", {
         imageUrl: url,
         error: err.message,
@@ -70,14 +63,9 @@ async function createViolation(req, res, next) {
 
     let url, publicId;
     if (previewImageUrl && previewImagePublicId) {
-      // Came from the detect-preview + confirm flow — image is already
-      // uploaded, don't upload it again.
       url = previewImageUrl;
       publicId = previewImagePublicId;
     } else {
-      // Fallback: direct submit without going through preview (e.g. an
-      // older client, or detection failed and the citizen skipped
-      // straight to submit). Behaves exactly like the original flow.
       if (!req.file) throw ApiError.badRequest("A photo is required");
       ({ url, publicId } = await uploadBuffer(req.file.buffer, "civimap/violations"));
     }
@@ -91,23 +79,6 @@ async function createViolation(req, res, next) {
     });
 
     if (confirmedPlateNumber) {
-      // The citizen already saw and confirmed this exact plate text
-      // against the photo (see ViolationUpload.jsx's "This plate number
-      // is correct" checkbox) — that human confirmation is trusted over
-      // whatever the AI originally guessed. aiConfidence is still stored
-      // for record-keeping / admin visibility, but it is NOT used to
-      // gate auto-notify here, since it reflects the AI's original
-      // (possibly wrong, possibly 0%) read, not the corrected plate the
-      // citizen actually submitted.
-      //
-      // FIX: previously this also required
-      // `violation.aiConfidence >= env.AI_CONFIDENCE_THRESHOLD`, which
-      // meant a citizen-corrected plate with a real registry match still
-      // got sent to markFlagged() (never auto-notified) whenever the
-      // AI's original guess was low-confidence — exactly the case this
-      // confirm-and-correct flow exists to handle. The AI-confidence
-      // threshold still applies below, on the unconfirmed background-job
-      // path, where no human has verified the plate at all.
       violation.extractedPlateNumber = confirmedPlateNumber;
       violation.aiConfidence = Number(confirmedConfidence) || 0;
       violation.aiProcessedAt = new Date();
@@ -129,11 +100,6 @@ async function createViolation(req, res, next) {
           String(violation.matchedOwnerUserId) === String(req.account._id);
 
         if (isSelfReport) {
-          // Citizen reported a vehicle registered under their own
-          // account. This isn't a case that needs admin review — a
-          // self-report can never be a legitimate independent violation
-          // catch, so it's rejected outright: no notification dispatch,
-          // no admin-room socket emit, no review queue entry at all.
           violation.status = "rejected";
           violation.rejectionReason = "Vehicle is registered under the reporting account.";
           violation.reviewedAt = new Date();
@@ -186,10 +152,6 @@ async function createViolation(req, res, next) {
         }
       }
     } else {
-      // No confirmed plate — fall back to the original async pipeline
-      // (AI detection happens in the background job, as before). This
-      // path is unconfirmed by a human, so the AI-confidence threshold
-      // in the background job is the right gate here.
       enqueueViolationDetection(violation._id).catch((err) =>
         logger.jobFailure("Failed to enqueue violation detection", {
           violationId: violation._id,
@@ -212,7 +174,11 @@ async function listViolations(req, res, next) {
 
     const skip = (page - 1) * limit;
     const [violations, total] = await Promise.all([
-      Violation.find(filters).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Violation.find(filters)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("reportedBy", REPORTER_FIELDS),
       Violation.countDocuments(filters),
     ]);
 
@@ -229,7 +195,10 @@ async function listViolations(req, res, next) {
 
 async function getViolation(req, res, next) {
   try {
-    const violation = await Violation.findOne({ _id: req.params.id, isDeleted: false });
+    const violation = await Violation.findOne({ _id: req.params.id, isDeleted: false }).populate(
+      "reportedBy",
+      REPORTER_FIELDS
+    );
     if (!violation) throw ApiError.notFound("Violation not found");
     return ApiResponse.ok(res, { violation });
   } catch (err) {
@@ -283,7 +252,9 @@ async function reviewViolation(req, res, next) {
     const reporter = await User.findById(violation.reportedBy);
     if (reporter) await notificationService.notifyViolationStatus(violation, reporter, decision);
 
-    return ApiResponse.ok(res, { violation });
+    const populated = await Violation.findById(violation._id).populate("reportedBy", REPORTER_FIELDS);
+
+    return ApiResponse.ok(res, { violation: populated });
   } catch (err) {
     next(err);
   }
